@@ -1,4 +1,4 @@
-from app import Dash, html, dcc
+from dash import Dash, html, dcc
 from dash.dependencies import Input, Output
 
 import plotly.graph_objects as go 
