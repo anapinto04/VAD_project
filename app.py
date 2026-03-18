@@ -4,6 +4,7 @@ from dash.dependencies import Input, Output
 import plotly.graph_objects as go 
 app = Dash(__name__) 
 
+#Layout of the app
 app.layout = html.Div([ 
     html.P("Color:"), 
     dcc.Dropdown( 
@@ -14,10 +15,10 @@ app.layout = html.Div([
         ], 
         value='Gold', 
     ), 
-    dcc.Graph(id="graph"), 
+    dcc.Graph(id="graph", figure=go.Figure()), 
 ]) 
 
-
+#interacão
 @app.callback( 
     Output("graph", "figure"), 
     [Input("dropdown", "value")]) 

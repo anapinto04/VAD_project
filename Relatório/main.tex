@@ -1,0 +1,117 @@
+\documentclass[a4paper, 12pt]{article}
+
+\usepackage[portuges]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{multicol,lipsum}
+\usepackage[portuges]{babel}
+\usepackage[a4paper, top=3cm]{geometry}
+\usepackage{tabularx}   % <-- adiciona isto no preâmbulo
+\usepackage{float}      % para usar [H]
+\usepackage{booktabs}   % linhas mais elegantes
+\usepackage{natbib}
+\usepackage{url}
+\def\UrlBreaks{\do\/\do-}
+\addto\extrasportuguese{%
+  \renewcommand{\sectionautorefname}{Seção}%
+  \renewcommand{\subsectionautorefname}{Subseção}%
+  \renewcommand{\figureautorefname}{Figura}%
+  \renewcommand{\tableautorefname}{Tabela}%
+  \renewcommand{\refname}{}      % Para a classe article
+\renewcommand{\bibname}{}
+
+}
+
+
+\usepackage{caption} % necessário para usar \captionof
+
+\usepackage[hidelinks]{hyperref}
+\renewcommand{\refname}{}
+\begin{document}
+%\maketitle
+
+\begin{titlepage}
+	\begin{center}
+	
+	\begin{figure}[!ht]
+	\centering
+	\includegraphics[width=15cm]{fctuc.png}
+	\end{figure}
+		\LARGE{}{Mestrado em Inteligência Atifical e~Ciência~de~Dados}\\[0.8cm] 
+		\Large{Visualização Avançada de Dados}\\ [0.2cm]
+		\vspace{10pt}
+        \vspace{95pt}
+        \textbf{\LARGE{Análise de Acidentes Rodoviários}}\\
+        
+		\vspace{5cm}
+	\end{center}
+
+	
+\begin{flushleft}
+\begin{tabular}{@{} l l}
+\textbf{Alunos:} & Ana  Pinto 2022223132 \\
+				 & José Monteiro 2022228866\\[0.5cm]
+                \\
+\textbf{Professores:} & Evgheni Polisciuc \\
+                        & Catarina Maças
+\end{tabular}
+\end{flushleft}
+
+	\vfill
+	\begin{center}
+		\vspace{\fill}
+			 Março 2026\\
+			\end{center}
+\end{titlepage}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% % % % % % % %INDICE % % % % % % % % % % % % % % % % % %
+\newpage
+\renewcommand{\contentsname}{Índice}
+\tableofcontents
+\thispagestyle{empty}
+
+\newpage
+\pagenumbering{arabic}
+% % % % % % % % % % % % % % % % % % % % % % % % % % %
+\section{Introdução}
+
+Os dados relativos a acidentes rodoviários são, regra geral, muito extensos e altamente detalhados, o que dificulta a sua leitura e interpretação imediata padrões, como locais críticos ou períodos de maior incidência, limitando assim a perceção rápida dos principais problemas e comprometendo o apoio eficaz à tomada de decisão. 
+
+A visualização de informação surge como uma ferramenta para ultrapassar estas dificuldades, ao transformar grandes volumes de dados em representações mais claras e intuitivas, como gráficos e mapas, facilitando a identificação de tendências e áreas de risco.
+
+Neste contexto, com projeto pretende-se analisar variáveis, como local, data/hora, tipo e gravidade do acidente, com o objetivo de evidenciar padrões relevantes, nomeadamente os locais com mais ocorrências, os períodos mais críticos e as zonas de maior risco.
+
+ % % % % % % % % %  BIBLIOGRAFIA  % % % % % % % % % % % % % % % % 
+
+\section{Público-Alvo}
+O público-alvo deste projeto é constituído por entidades governamentais, como Câmara Municipal e a Infrassturutura de Portugal.
+
+As câmaras municipais, no âmbito do planeamento urbano e da mobilidade, necessitam de tomar decisões informadas sobre onde investir em infraestrutura, como sinalização, iluminação ou medidas de redução de tráfego, procurando identificar “pontos negros” e problemas recorrentes.
+
+Para isso, interessam-lhes questões como os locais mais perigosos, a gravidade dos acidentes por zona, os períodos de maior ocorrência e a existência de padrões repetidos como mesmo tipo de acidente em locais semelhantes. Com base nesta análise, podem definir intervenções como melhoria da iluminação, reestruturação de cruzamentos, reforço da sinalização ou redução de velocidade.
+
+Já a Infraestrutura de Portugal, responsável pela gestão e manutenção de autoestradas e vias nacionais, necessita de informações detalhadas sobre os acidentes para planear intervenções e melhorias na segurança das estradas. 
+
+\section{Trabalhos Relacionados}
+\section{Design Requirements}
+\section{Data}
+\section{Análise Exploratória de Dados}
+
+
+
+\newpage
+
+\section*{Bibliografia} % Este é o título que você quer manter
+
+\nocite{*}
+\bibliographystyle{apalike}
+\bibliography{Bibliografia}
+\end{document}
+
+
+
