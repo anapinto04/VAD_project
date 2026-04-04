@@ -1,36 +1,3 @@
-'''from dash import Dash, html, dcc
-from dash.dependencies import Input, Output
-
-import plotly.graph_objects as go 
-app = Dash(__name__) 
-
-#Layout of the app
-app.layout = html.Div([ 
-    html.P("Color:"), 
-    dcc.Dropdown( 
-        id="dropdown", 
-        options=[ 
-            {'label': x, 'value': x} 
-            for x in ['Gold', 'MediumTurquoise', 'LightGreen'] 
-        ], 
-        value='Gold', 
-    ), 
-    dcc.Graph(id="graph", figure=go.Figure()), 
-]) 
-
-#interacão
-@app.callback( 
-    Output("graph", "figure"), 
-    [Input("dropdown", "value")]) 
-def display_color(color): 
-    print(color) 
-    fig = go.Figure( 
-        data=go.Bar(y=[2, 3, 1], marker_color=color)) 
-    return fig 
-
-if __name__ == "__main__":
-    app.run(debug=True)
-'''   
 import json
 import pyproj
 import pandas as pd
@@ -83,8 +50,6 @@ df_resumo = pd.DataFrame({
     'Acidentes': [120, 80, 150, 40, 60, 110, 45, 200, 35, 90, 450, 30, 380, 85, 130, 55, 65, 75]
 })
 
-# Dados de Exemplo para os Pontos de Acidente (Visão Zoom)
-# Quando tiveres o teu CSV, substitui isto por: df_acidentes = pd.read_csv('teu_ficheiro.csv')
 df_acidentes = pd.DataFrame({
     'DISTRITO': ['LISBOA', 'LISBOA', 'PORTO', 'PORTO', 'BRAGA', 'FARO'],
     'lat': [38.725, 38.710, 41.150, 41.165, 41.555, 37.020],
@@ -137,15 +102,9 @@ def atualizar_mapa(clickData, n_clicks):
     # --- ESTADO ZOOM: Mapa Limpo com Pontos (Scatter) ---
     else:
         distrito_clicado = clickData['points'][0]['location']
-        
-        # Filtrar acidentes do distrito
         df_filtrado = df_acidentes[df_acidentes['DISTRITO'] == distrito_clicado]
-        
-        # Obter coordenadas para centralizar o zoom
         coord = coords_capitais.get(distrito_clicado, {"lat": 39.5, "lon": -8.0})
-        
-        # Criar mapa de pontos (Scatter)
-        # Ao não passar o GeoJSON aqui, o mapa "limpa" as cores das áreas
+    
         fig = px.scatter_map(
             df_filtrado,
             lat="lat",

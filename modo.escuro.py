@@ -3,7 +3,7 @@ import pyproj
 import pandas as pd
 import dash
 from dash import dcc, html, Input, Output, State, callback_context
-import dash_bootstrap_components as dbc # Necessário: pip install dash-bootstrap-components
+import dash_bootstrap_components as dbc
 import plotly.express as px
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
@@ -80,19 +80,15 @@ app.layout = dbc.Container([
 def atualizar_dashboard(clickData, n_reset, dark_mode):
     ctx = callback_context
     trigger = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else 'btn-reset'
-    
-    # Definir cores do tema da página
     is_dark = len(dark_mode) > 0
     bg_color = "#1a1a1a" if is_dark else "white"
     text_color = "white" if is_dark else "black"
     container_style = {"backgroundColor": bg_color, "color": text_color, "minHeight": "100vh"}
     
-    # Configuração visual do Plotly baseada no tema
     map_style = "carto-darkmatter" if is_dark else "carto-positron"
     template = "plotly_dark" if is_dark else "plotly_white"
 
     # --- LÓGICA DO MAPA ---
-    # Se clicar no Reset ou no Switch de Tema sem ter um distrito selecionado
     if trigger in ['btn-reset', 'switch-tema'] and clickData is None:
         fig = px.choropleth_map(
             df_resumo, geojson=geojson_data, locations="DISTRITO",
