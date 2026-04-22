@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
+
 # =========================
 # 1. FUNÇÕES AUXILIARES
 # =========================
@@ -30,60 +31,24 @@ def find_column(df, possible_names):
 
 def parse_mes_num(series):
     month_map = {
-        "1": 1,
-        "01": 1,
-        "JANEIRO": 1,
-        "JAN": 1,
-        "2": 2,
-        "02": 2,
-        "FEVEREIRO": 2,
-        "FEV": 2,
-        "3": 3,
-        "03": 3,
-        "MARCO": 3,
-        "MAR": 3,
-        "4": 4,
-        "04": 4,
-        "ABRIL": 4,
-        "ABR": 4,
-        "5": 5,
-        "05": 5,
-        "MAIO": 5,
-        "MAI": 5,
-        "6": 6,
-        "06": 6,
-        "JUNHO": 6,
-        "JUN": 6,
-        "7": 7,
-        "07": 7,
-        "JULHO": 7,
-        "JUL": 7,
-        "8": 8,
-        "08": 8,
-        "AGOSTO": 8,
-        "AGO": 8,
-        "9": 9,
-        "09": 9,
-        "SETEMBRO": 9,
-        "SET": 9,
-        "10": 10,
-        "OUTUBRO": 10,
-        "OUT": 10,
-        "11": 11,
-        "NOVEMBRO": 11,
-        "NOV": 11,
-        "12": 12,
-        "DEZEMBRO": 12,
-        "DEZ": 12,
+        "1": 1, "01": 1,"JANEIRO": 1, "JAN": 1,
+        "2": 2, "02": 2,"FEVEREIRO": 2, "FEV": 2,
+        "3": 3, "03": 3,"MARCO": 3, "MAR": 3,
+        "4": 4, "04": 4,"ABRIL": 4, "ABR": 4,
+        "5": 5, "05": 5,"MAIO": 5, "MAI": 5,
+        "6": 6, "06": 6,"JUNHO": 6, "JUN": 6,
+        "7": 7, "07": 7,"JULHO": 7, "JUL": 7,
+        "8": 8, "08": 8,"AGOSTO": 8, "AGO": 8,
+        "9": 9, "09": 9,"SETEMBRO": 9, "SET": 9,
+        "10": 10, "OUTUBRO": 10, "OUT": 10,
+        "11": 11, "NOVEMBRO": 11, "NOV": 11,
+        "12": 12, "DEZEMBRO": 12, "DEZ": 12,
     }
 
     cleaned = series.astype(str).str.strip().map(normalize_text)
-    parsed = cleaned.map(month_map)
-
-    if parsed.notna().any():
-        return parsed.astype("Int64")
-
-    return pd.to_numeric(series, errors="coerce").astype("Int64")
+    parsed_text = cleaned.map(month_map)
+    parsed_numeric = pd.to_numeric(cleaned, errors="coerce")
+    return parsed_text.fillna(parsed_numeric).astype("Int64")
 
 
 def parse_hora(series):
@@ -142,6 +107,7 @@ def aggregate_by_month(dataframe, month_column, value_column=None, output_column
     result.columns = ["Mes_Ordem", output_column]
     result["Mês"] = result["Mes_Ordem"].map(MONTH_LABELS)
     result["Mês"] = pd.Categorical(result["Mês"], categories=MONTH_ORDER, ordered=True)
+
     return result[["Mês", output_column]]
 
 
@@ -153,7 +119,6 @@ def load_data():
     original_files = sorted(glob.glob("Datasets originais/*.xlsx"))
     data_files = sorted(glob.glob("data/*.xlsx"))
 
-    # Para acelerar o arranque, usar apenas uma fonte principal (limpos > originais).
     if clean_files:
         search_files = clean_files
     elif original_files:
@@ -161,29 +126,58 @@ def load_data():
     else:
         search_files = []
 
-    # Ficheiros adicionais em data/ são anexados sem duplicar caminhos.
     search_files.extend(data_files)
-
     files = sorted(set(search_files))
-    dfs = []
 
+    cache_dir = ".cache"
+    cache_data_path = os.path.join(cache_dir, "accidents_cache.parquet")
+    cache_meta_path = os.path.join(cache_dir, "accidents_cache_meta.json")
+
+    source_state = {
+        os.path.normpath(path): os.path.getmtime(path)
+        for path in files
+        if os.path.exists(path)
+    }
+
+    if os.path.exists(cache_data_path) and os.path.exists(cache_meta_path):
+        try:
+            with open(cache_meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            cached_state = meta.get("source_state", {})
+
+            if cached_state == source_state:
+                return pd.read_parquet(cache_data_path)
+        except Exception:
+            pass
+
+    dfs = []
     for file in files:
         try:
-            df = pd.read_excel(file)
+            df_local = pd.read_excel(file)
         except Exception:
             continue
 
         filename = os.path.basename(file)
         digits = "".join(filter(str.isdigit, filename))
         if len(digits) >= 4:
-            df["Ano"] = int(digits[:4])
+            df_local["Ano"] = int(digits[:4])
 
-        dfs.append(df)
+        dfs.append(df_local)
 
     if not dfs:
         return pd.DataFrame()
 
-    return pd.concat(dfs, ignore_index=True)
+    combined = pd.concat(dfs, ignore_index=True)
+
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        combined.to_parquet(cache_data_path, index=False)
+        with open(cache_meta_path, "w", encoding="utf-8") as f:
+            json.dump({"source_state": source_state}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    return combined
 
 
 def load_geojson_portugal():
@@ -204,7 +198,9 @@ def load_geojson_portugal():
     with open(geojson_path, encoding="utf-8-sig") as f:
         geojson_data = json.load(f)
 
-    transformer = pyproj.Transformer.from_crs("EPSG:3763", "EPSG:4326", always_xy=True).transform
+    transformer = pyproj.Transformer.from_crs(
+        "EPSG:3763", "EPSG:4326", always_xy=True
+    ).transform
 
     for feature in geojson_data.get("features", []):
         try:
@@ -221,6 +217,7 @@ def load_geojson_portugal():
 
 df = load_data()
 geojson_portugal = load_geojson_portugal()
+
 
 # =========================
 # 3. NORMALIZAÇÃO / LIMPEZA
@@ -240,8 +237,16 @@ mortais_col = find_column(df, ["Vítimas mortais 30 dias", "Vitimas mortais 30 d
 graves_col = find_column(df, ["Feridos graves 30 dias"])
 leves_col = find_column(df, ["Feridos leves 30 dias"])
 
-ligeiros_col = find_column(df, ["Nº de Ligeiros", "No de Ligeiros", "Num Ligeiros", "Num veículos ligeiros", "Num veiculos ligeiros"])
-pesados_col = find_column(df, ["Nº de Pesados", "No de Pesados", "Num Pesados", "Num veículos pesados", "Num veiculos pesados"])
+ligeiros_col = find_column(df, [
+    "Nº de Ligeiros", "No de Ligeiros", "Num Ligeiros",
+    "Num veículos ligeiros", "Num veiculos ligeiros"
+])
+
+pesados_col = find_column(df, [
+    "Nº de Pesados", "No de Pesados", "Num Pesados",
+    "Num veículos pesados", "Num veiculos pesados"
+])
+
 motos_col = find_column(df, [
     "Nº de Motociclos",
     "No de Motociclos",
@@ -252,6 +257,7 @@ motos_col = find_column(df, [
     "Num ciclomotores e motociclos",
     "Num ciclomotores",
 ])
+
 outros_col = find_column(df, [
     "Num outros veículos",
     "Num outros veiculos",
@@ -269,7 +275,10 @@ if distrito_col:
 else:
     df["DistritoNorm"] = None
 
-for col in [mortais_col, graves_col, leves_col, lat_col, lon_col, ligeiros_col, pesados_col, motos_col]:
+for col in [
+    mortais_col, graves_col, leves_col, lat_col, lon_col,
+    ligeiros_col, pesados_col, motos_col, outros_col
+]:
     if col:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -294,36 +303,40 @@ else:
 # 4. COORDENADAS DAS CAPITAIS
 # =========================
 coords_capitais = {
-    'AVEIRO': {'lat': 40.6405, 'lon': -8.6538},
-    'BEJA': {'lat': 38.0151, 'lon': -7.8632},
-    'BRAGA': {'lat': 41.5503, 'lon': -8.4201},
-    'BRAGANCA': {'lat': 41.8058, 'lon': -6.7572},
-    'CASTELO BRANCO': {'lat': 39.8222, 'lon': -7.4909},
-    'COIMBRA': {'lat': 40.2033, 'lon': -8.4103},
-    'EVORA': {'lat': 38.5714, 'lon': -7.9135},
-    'FARO': {'lat': 37.0176, 'lon': -7.9304},
-    'GUARDA': {'lat': 40.5365, 'lon': -7.2684},
-    'LEIRIA': {'lat': 39.7436, 'lon': -8.8071},
-    'LISBOA': {'lat': 38.7223, 'lon': -9.1393},
-    'PORTALEGRE': {'lat': 39.2938, 'lon': -7.4285},
-    'PORTO': {'lat': 41.1579, 'lon': -8.6291},
-    'SANTAREM': {'lat': 39.2361, 'lon': -8.6850},
-    'SETUBAL': {'lat': 38.5244, 'lon': -8.8931},
-    'VIANA DO CASTELO': {'lat': 41.6932, 'lon': -8.8329},
-    'VILA REAL': {'lat': 41.3010, 'lon': -7.7422},
-    'VISEU': {'lat': 40.6566, 'lon': -7.9125}
+    "AVEIRO": {"lat": 40.6405, "lon": -8.6538},
+    "BEJA": {"lat": 38.0151, "lon": -7.8632},
+    "BRAGA": {"lat": 41.5503, "lon": -8.4201},
+    "BRAGANCA": {"lat": 41.8058, "lon": -6.7572},
+    "CASTELO BRANCO": {"lat": 39.8222, "lon": -7.4909},
+    "COIMBRA": {"lat": 40.2033, "lon": -8.4103},
+    "EVORA": {"lat": 38.5714, "lon": -7.9135},
+    "FARO": {"lat": 37.0176, "lon": -7.9304},
+    "GUARDA": {"lat": 40.5365, "lon": -7.2684},
+    "LEIRIA": {"lat": 39.7436, "lon": -8.8071},
+    "LISBOA": {"lat": 38.7223, "lon": -9.1393},
+    "PORTALEGRE": {"lat": 39.2938, "lon": -7.4285},
+    "PORTO": {"lat": 41.1579, "lon": -8.6291},
+    "SANTAREM": {"lat": 39.2361, "lon": -8.6850},
+    "SETUBAL": {"lat": 38.5244, "lon": -8.8931},
+    "VIANA DO CASTELO": {"lat": 41.6932, "lon": -8.8329},
+    "VILA REAL": {"lat": 41.3010, "lon": -7.7422},
+    "VISEU": {"lat": 40.6566, "lon": -7.9125}
+}
+
+PORTUGAL_BOUNDS = {
+    "west": -9.6,
+    "east": -6.0,
+    "south": 36.8,
+    "north": 42.3,
 }
 
 
 # =========================
 # 5. FUNÇÃO DO MAPA
 # =========================
-def build_map_figure(dff, click_data, reset_clicks):
-    ctx = callback_context
-    trigger = ctx.triggered[0]["prop_id"].split(".")[0] if ctx.triggered else "btn-reset"
-
-    # Estado inicial / reset
-    if trigger == "btn-reset" or click_data is None or geojson_portugal is None:
+def build_map_figure(dff, selected_district):
+    # Sem distrito selecionado: mostra mapa coroplético por distrito.
+    if selected_district is None or geojson_portugal is None:
         if "DistritoNorm" in dff.columns and distrito_col:
             mapa_df = (
                 dff.groupby(["DistritoNorm", distrito_col])
@@ -341,27 +354,28 @@ def build_map_figure(dff, click_data, reset_clicks):
                 hover_data={"DistritoNorm": False, "Acidentes": True},
                 color_continuous_scale="Reds",
                 center={"lat": 39.5, "lon": -8.0},
-                zoom=5.8,
+                zoom=-0.9,
                 opacity=0.7
             )
 
             fig.update_layout(
-                title="Clique num distrito para ver detalhes dos acidentes",
                 mapbox_style="carto-positron",
-                margin={"r": 0, "t": 50, "l": 0, "b": 0}
+                mapbox={"bounds": PORTUGAL_BOUNDS},
+                margin={"r": 0, "t": 10, "l": 0, "b": 0}
             )
             return fig
 
         fig = go.Figure()
-        fig.update_layout(title="Mapa de Portugal")
+        fig.update_layout(
+            mapbox={"bounds": PORTUGAL_BOUNDS},
+            margin={"r": 0, "t": 10, "l": 0, "b": 0}
+        )
         return fig
 
-    # Estado zoom após clique
-    distrito_clicado = click_data["points"][0]["location"]
-
+    # Com distrito selecionado: filtra acidentes desse distrito com coordenadas válidas.
     if lat_col and lon_col and "DistritoNorm" in dff.columns:
         df_filtrado = dff[
-            (dff["DistritoNorm"] == distrito_clicado) &
+            (dff["DistritoNorm"] == selected_district) &
             dff[lat_col].notna() &
             dff[lon_col].notna()
         ].copy()
@@ -370,12 +384,10 @@ def build_map_figure(dff, click_data, reset_clicks):
 
     if df_filtrado.empty:
         fig = go.Figure()
-        fig.update_layout(
-            title=f"Sem coordenadas disponíveis para {distrito_clicado}",
-            margin={"r": 0, "t": 50, "l": 0, "b": 0}
-        )
+        fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0})
         return fig
 
+    # Classificação de gravidade para colorir os pontos no mapa.
     if mortais_col and graves_col:
         df_filtrado["gravidade"] = "Ligeiro"
         df_filtrado.loc[df_filtrado[graves_col].fillna(0) > 0, "gravidade"] = "Grave"
@@ -383,40 +395,111 @@ def build_map_figure(dff, click_data, reset_clicks):
     else:
         df_filtrado["gravidade"] = "Acidente"
 
-    coord = coords_capitais.get(distrito_clicado, {"lat": 39.5, "lon": -8.0})
+    coord = coords_capitais.get(selected_district, {"lat": 39.5, "lon": -8.0})
+    selected_boundary = None
+    if geojson_portugal is not None:
+        for feature in geojson_portugal.get("features", []):
+            props = feature.get("properties", {})
+            feature_district = props.get("DistritoNorm") or normalize_text(props.get("Distrito", ""))
+            if feature_district == selected_district:
+                # Usa o centroide do polígono para centrar o mapa no distrito clicado.
+                try:
+                    district_geom = shape(feature.get("geometry"))
+                    centroid = district_geom.centroid
+                    if centroid and centroid.is_valid:
+                        coord = {"lat": centroid.y, "lon": centroid.x}
+                except Exception:
+                    pass
 
+                selected_boundary = {
+                    "type": "FeatureCollection",
+                    "features": [feature]
+                }
+                break
+
+    # Cada ponto representa um registo de acidente no distrito selecionado.
     fig = px.scatter_mapbox(
         df_filtrado,
         lat=lat_col,
         lon=lon_col,
         color="gravidade",
         hover_name=natureza_col if natureza_col else None,
-        hover_data={
-            lat_col: False,
-            lon_col: False
-        },
+        hover_data={lat_col: False, lon_col: False},
         color_discrete_map={
             "Mortal": "black",
             "Grave": "red",
             "Ligeiro": "orange",
             "Acidente": "blue"
         },
-        zoom=9.5,
+        zoom=8,
         center=coord
     )
 
     fig.update_traces(marker=dict(size=9))
     fig.update_layout(
-        title=f"Distribuição de Acidentes: {distrito_clicado}",
         mapbox_style="carto-positron",
-        margin={"r": 0, "t": 50, "l": 0, "b": 0}
+        mapbox={"bounds": PORTUGAL_BOUNDS},
+        margin={"r": 0, "t": 10, "l": 0, "b": 0}
     )
+
+    if selected_boundary is not None:
+        fig.update_layout(
+            mapbox_layers=[
+                {
+                    "sourcetype": "geojson",
+                    "source": selected_boundary,
+                    "type": "line",
+                    "color": "#b1afaf",
+                    "line": {"width": 2}
+                }
+            ]
+        )
 
     return fig
 
 
 # =========================
-# 6. APP DASH
+# 6. FUNÇÃO ESTILO KPI
+# =========================
+def kpi_style():
+    return {
+        "background": "white",
+        "borderRadius": "14px",
+        "padding": "18px",
+        "textAlign": "center",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.08)"
+    }
+
+
+def format_int_pt(value):
+    return f"{int(value):,}".replace(",", ".")
+
+
+def kpi_prev_label(prev_val):
+    if prev_val is None:
+        return html.Span("Ano anterior: N/A", style={"fontSize": "11px", "color": "#888"})
+    return html.Span(
+        f"Ano anterior: {format_int_pt(prev_val)}",
+        style={"fontSize": "11px", "color": "#888"}
+    )
+
+
+def kpi_pct_badge(current, previous, lower_is_better=True):
+    if previous is None or previous == 0:
+        return html.Span("Sem base", style={"fontSize": "12px", "color": "#888", "fontWeight": "bold"})
+
+    pct = (current - previous) / previous * 100
+    is_improvement = (pct < 0 and lower_is_better) or (pct > 0 and not lower_is_better)
+    color = "#2e7d32" if is_improvement else "#c62828"
+    arrow = "▼" if pct < 0 else "▲"
+    return html.Span(
+        f"{arrow} {abs(pct):.1f}%",
+        style={"fontSize": "12px", "color": color, "fontWeight": "bold"}
+    )
+
+
+# =========================
+# 7. APP DASH
 # =========================
 app = Dash(__name__)
 app.title = "Acidentes Rodoviários em Portugal"
@@ -424,7 +507,12 @@ app.title = "Acidentes Rodoviários em Portugal"
 anos_disponiveis = sorted(df["Ano"].dropna().unique()) if "Ano" in df.columns else []
 
 app.layout = html.Div([
-    html.H1("Acidentes Rodoviários em Portugal", style={"textAlign": "center"}),
+    dcc.Store(id="selected-district", data=None),
+
+    html.H1(
+        "Acidentes Rodoviários em Portugal",
+        style={"textAlign": "center", "marginBottom": "16px"}
+    ),
 
     html.Div([
         html.Div([
@@ -435,20 +523,12 @@ app.layout = html.Div([
                 value=anos_disponiveis[-1] if anos_disponiveis else None,
                 clearable=False
             )
-        ], style={"width": "250px"}),
-        html.Button(
-            "Limpar seleção do mapa",
-            id="btn-reset",
-            n_clicks=0,
-            style={"height": "38px"}
-        )
+        ], style={"width": "250px"})
     ], style={
         "display": "flex",
-        "gap": "12px",
         "alignItems": "end",
         "marginBottom": "20px"
     }),
-
 
     html.Div([
         html.Div(id="kpi-vitimas", className="kpi-card"),
@@ -464,8 +544,45 @@ app.layout = html.Div([
 
     html.Div([
         html.Div([
-            dcc.Graph(id="mapa-distritos", style={"height": "700px"})
-        ], style={"width": "48%"}),
+            html.Div([
+                html.Div(
+                    id="mapa-titulo",
+                    style={
+                        "margin": "0",
+                        "color": "#2b4a74",
+                        "fontSize": "22px",
+                        "fontWeight": "600"
+                    }
+                ),
+                html.Button(
+                    "Limpar seleção do mapa",
+                    id="btn-reset",
+                    n_clicks=0,
+                    style={
+                        "padding": "8px 12px",
+                        "border": "1px solid #cfcfcf",
+                        "borderRadius": "8px",
+                        "background": "#f7f9fc",
+                        "color": "#1f2a44",
+                        "cursor": "pointer",
+                        "fontSize": "14px",
+                        "fontWeight": "600"
+                    }
+                )
+            ], style={
+                "display": "flex",
+                "justifyContent": "space-between",
+                "alignItems": "center",
+                "marginBottom": "8px",
+                "gap": "12px"
+            }),
+
+            dcc.Graph(
+                id="mapa-distritos",
+                style={"height": "620px"},
+                config={"displaylogo": False}
+            )
+        ], style={"width": "48%", "display": "flex", "flexDirection": "column"}),
 
         html.Div([
             dcc.Graph(id="line-acidentes"),
@@ -489,7 +606,6 @@ app.layout = html.Div([
         "display": "flex",
         "justifyContent": "space-between"
     })
-
 ], style={
     "padding": "20px",
     "backgroundColor": "#f5f7fb",
@@ -498,29 +614,58 @@ app.layout = html.Div([
 
 
 # =========================
-# 7. CALLBACK PRINCIPAL
+# 8. CALLBACK DO DISTRITO SELECIONADO
+# =========================
+@app.callback(
+    Output("selected-district", "data"),
+    Input("mapa-distritos", "clickData"),
+    Input("btn-reset", "n_clicks"),
+    prevent_initial_call=True
+)
+def manage_selected_district(click_data, reset_clicks):
+    ctx = callback_context
+    if not ctx.triggered:
+        return None
+
+    trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    if trigger == "btn-reset":
+        # Limpa seleção e volta ao mapa principal (distritos).
+        return None
+
+    if trigger == "mapa-distritos" and click_data is not None:
+        point = click_data["points"][0]
+        # No coroplético, a chave "location" traz o distrito clicado.
+        if "location" in point:
+            return point["location"]
+
+    return None
+
+
+# =========================
+# 9. CALLBACK PRINCIPAL
 # =========================
 @app.callback(
     Output("kpi-vitimas", "children"),
     Output("kpi-graves", "children"),
     Output("kpi-distrito", "children"),
     Output("kpi-natureza", "children"),
+    Output("mapa-titulo", "children"),
     Output("mapa-distritos", "figure"),
     Output("line-acidentes", "figure"),
     Output("line-vitimas", "figure"),
     Output("bar-veiculos", "figure"),
     Output("pie-meteorologia", "figure"),
     Input("year-filter", "value"),
-    Input("mapa-distritos", "clickData"),
-    Input("btn-reset", "n_clicks")
+    Input("selected-district", "data")
 )
-def update_dashboard(selected_year, click_data, reset_clicks):
+def update_dashboard(selected_year, selected_district):
     dff = df.copy()
 
+    # Filtro global por ano aplicado a todos os gráficos/KPIs.
     if selected_year is not None and "Ano" in dff.columns:
         dff = dff[dff["Ano"] == selected_year]
 
-    # KPIs
     total_vitimas = int(dff["Vitimas_Totais"].sum()) if "Vitimas_Totais" in dff.columns else 0
     total_graves = int(dff["Acidente_Grave"].sum()) if "Acidente_Grave" in dff.columns else 0
 
@@ -540,27 +685,6 @@ def update_dashboard(selected_year, click_data, reset_clicks):
             natureza_top = counts.idxmax()
             natureza_count = int(counts.iloc[0])
 
-    def _kpi_prev_label(prev_val):
-        if prev_val is None:
-            return html.Span("Ano anterior: N/A", style={"fontSize": "11px", "color": "#888"})
-        return html.Span(
-            f"Ano anterior: {prev_val:,}".replace(",", "."),
-            style={"fontSize": "11px", "color": "#888"}
-        )
-
-    def _kpi_pct_badge(current, previous, lower_is_better=True):
-        if previous is None or previous == 0:
-            return html.Span("Sem base", style={"fontSize": "12px", "color": "#888", "fontWeight": "bold"})
-
-        pct = (current - previous) / previous * 100
-        is_improvement = (pct < 0 and lower_is_better) or (pct > 0 and not lower_is_better)
-        color = "#2e7d32" if is_improvement else "#c62828"
-        arrow = "▼" if pct < 0 else "▲"
-        return html.Span(
-            f"{arrow} {abs(pct):.1f}%",
-            style={"fontSize": "12px", "color": color, "fontWeight": "bold"}
-        )
-
     prev_vitimas = None
     prev_graves = None
     prev_distrito_count = None
@@ -569,50 +693,58 @@ def update_dashboard(selected_year, click_data, reset_clicks):
     if selected_year is not None and "Ano" in df.columns:
         prev_year = selected_year - 1
         dff_prev = df[df["Ano"] == prev_year]
+
         if not dff_prev.empty:
             if "Vitimas_Totais" in dff_prev.columns:
                 prev_vitimas = int(dff_prev["Vitimas_Totais"].sum())
+
             if "Acidente_Grave" in dff_prev.columns:
                 prev_graves = int(dff_prev["Acidente_Grave"].sum())
+
             if distrito_col and distrito_col in dff_prev.columns and distrito_critico != "N/A":
                 prev_distrito_count = int((dff_prev[distrito_col] == distrito_critico).sum())
+
             if natureza_col and natureza_col in dff_prev.columns and natureza_top != "N/A":
                 prev_natureza_count = int((dff_prev[natureza_col].astype(str) == natureza_top).sum())
 
     kpi1 = html.Div([
         html.H4("Vítimas Totais"),
-        html.H2(f"{total_vitimas:,}".replace(",", ".")),
-        _kpi_pct_badge(total_vitimas, prev_vitimas, lower_is_better=True),
-        _kpi_prev_label(prev_vitimas)
+        html.H2(format_int_pt(total_vitimas)),
+        kpi_pct_badge(total_vitimas, prev_vitimas, lower_is_better=True),
+        kpi_prev_label(prev_vitimas)
     ], style=kpi_style())
 
     kpi2 = html.Div([
         html.H4("Acidentes Graves"),
-        html.H2(f"{total_graves:,}".replace(",", ".")),
-        _kpi_pct_badge(total_graves, prev_graves, lower_is_better=True),
-        _kpi_prev_label(prev_graves)
+        html.H2(format_int_pt(total_graves)),
+        kpi_pct_badge(total_graves, prev_graves, lower_is_better=True),
+        kpi_prev_label(prev_graves)
     ], style=kpi_style())
 
     kpi3 = html.Div([
         html.H4("Distrito Crítico"),
         html.H2(str(distrito_critico)),
-        html.Span(f"{distrito_count:,} acidentes".replace(",", "."), style={"fontSize": "12px", "color": "#555"}),
-        _kpi_pct_badge(distrito_count, prev_distrito_count, lower_is_better=True),
-        _kpi_prev_label(prev_distrito_count)
+        html.Span(f"{format_int_pt(distrito_count)} acidentes", style={"fontSize": "12px", "color": "#555"}),
+        kpi_pct_badge(distrito_count, prev_distrito_count, lower_is_better=True),
+        kpi_prev_label(prev_distrito_count)
     ], style=kpi_style())
 
     kpi4 = html.Div([
         html.H4("Natureza"),
         html.H2(str(natureza_top)),
-        html.Span(f"{natureza_count:,} acidentes".replace(",", "."), style={"fontSize": "12px", "color": "#555"}),
-        _kpi_pct_badge(natureza_count, prev_natureza_count, lower_is_better=True),
-        _kpi_prev_label(prev_natureza_count)
+        html.Span(f"{format_int_pt(natureza_count)} acidentes", style={"fontSize": "12px", "color": "#555"}),
+        kpi_pct_badge(natureza_count, prev_natureza_count, lower_is_better=True),
+        kpi_prev_label(prev_natureza_count)
     ], style=kpi_style())
 
-    # Mapa
-    fig_mapa = build_map_figure(dff, click_data, reset_clicks)
+    mapa_titulo = (
+        f"Distribuição de Acidentes: {selected_district}"
+        if selected_district
+        else "Distribuição de Acidentes"
+    )
 
-    # Linha mensal - acidentes
+    fig_mapa = build_map_figure(dff, selected_district)
+
     if mes_col and mes_col in dff.columns:
         acidentes_mes = aggregate_by_month(dff, mes_col, output_column="Acidentes")
         fig_line_ac = px.line(
@@ -631,7 +763,6 @@ def update_dashboard(selected_year, click_data, reset_clicks):
         fig_line_ac = go.Figure()
         fig_line_ac.update_layout(title="Evolução Mensal (Acidentes)")
 
-    # Linha mensal - vítimas
     if mes_col and mes_col in dff.columns and "Vitimas_Totais" in dff.columns:
         vitimas_mes = aggregate_by_month(
             dff,
@@ -655,7 +786,6 @@ def update_dashboard(selected_year, click_data, reset_clicks):
         fig_line_vit = go.Figure()
         fig_line_vit.update_layout(title="Evolução Mensal (Vítimas)")
 
-    # Bar - veículos
     veiculos = []
     valores = []
 
@@ -689,7 +819,6 @@ def update_dashboard(selected_year, click_data, reset_clicks):
         fig_bar = go.Figure()
         fig_bar.update_layout(title="Tipos de Veículo Envolvidos")
 
-    # Pie - meteorologia
     if meteo_col and meteo_col in dff.columns:
         meteo_df = dff[meteo_col].astype(str).value_counts().reset_index()
         meteo_df.columns = ["Meteorologia", "Total"]
@@ -703,21 +832,22 @@ def update_dashboard(selected_year, click_data, reset_clicks):
         fig_pie = go.Figure()
         fig_pie.update_layout(title="Meteorologia")
 
-    return kpi1, kpi2, kpi3, kpi4, fig_mapa, fig_line_ac, fig_line_vit, fig_bar, fig_pie
-
-
-def kpi_style():
-    return {
-        "background": "white",
-        "borderRadius": "14px",
-        "padding": "18px",
-        "textAlign": "center",
-        "boxShadow": "0 2px 8px rgba(0,0,0,0.08)"
-    }
+    return (
+        kpi1,
+        kpi2,
+        kpi3,
+        kpi4,
+        mapa_titulo,
+        fig_mapa,
+        fig_line_ac,
+        fig_line_vit,
+        fig_bar,
+        fig_pie
+    )
 
 
 # =========================
-# 8. RUN
+# 10. RUN
 # =========================
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)
