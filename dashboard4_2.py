@@ -128,4 +128,4 @@ def update_all_viz(hoverData):
     return fig_main, fig_detalhe, info
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8056)

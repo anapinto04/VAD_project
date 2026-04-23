@@ -104,4 +104,4 @@ def update_lens(hoverData):
     return fig_main, fig_lens, info
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8055)

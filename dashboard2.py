@@ -173,4 +173,4 @@ def update_dashboard(anos_selecionados, mes_selecionado):
 # 4. EXECUÇÃO
 # ==============================================================================
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8052)

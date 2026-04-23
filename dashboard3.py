@@ -142,4 +142,4 @@ def update_comparison(ano1, ano2, mes, atributo):
     return fig1, f"Registos de {ano1}{label_tempo}", fig2, f"Registos de {ano2}{label_tempo}"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8053)

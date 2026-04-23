@@ -117,4 +117,4 @@ def atualizar_dashboard(clickData, n_reset, dark_mode):
     return fig, container_style
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8058)

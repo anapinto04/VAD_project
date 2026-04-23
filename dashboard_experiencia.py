@@ -98,4 +98,4 @@ def atualizar_dashboard(distrito_selecionado):
     return fig_v, fig_a, distrito_selecionado, info['natureza']
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8057)

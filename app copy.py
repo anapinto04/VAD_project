@@ -1,5 +1,4 @@
 import json
-import glob
 import os
 import unicodedata
 
@@ -10,6 +9,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from shapely.geometry import shape, mapping
 from shapely.ops import transform
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 # =========================
@@ -31,15 +32,15 @@ def find_column(df, possible_names):
 
 def parse_mes_num(series):
     month_map = {
-        "1": 1, "01": 1,"JANEIRO": 1, "JAN": 1,
-        "2": 2, "02": 2,"FEVEREIRO": 2, "FEV": 2,
-        "3": 3, "03": 3,"MARCO": 3, "MAR": 3,
-        "4": 4, "04": 4,"ABRIL": 4, "ABR": 4,
-        "5": 5, "05": 5,"MAIO": 5, "MAI": 5,
-        "6": 6, "06": 6,"JUNHO": 6, "JUN": 6,
-        "7": 7, "07": 7,"JULHO": 7, "JUL": 7,
-        "8": 8, "08": 8,"AGOSTO": 8, "AGO": 8,
-        "9": 9, "09": 9,"SETEMBRO": 9, "SET": 9,
+        "1": 1, "01": 1, "JANEIRO": 1, "JAN": 1,
+        "2": 2, "02": 2, "FEVEREIRO": 2, "FEV": 2,
+        "3": 3, "03": 3, "MARCO": 3, "MAR": 3,
+        "4": 4, "04": 4, "ABRIL": 4, "ABR": 4,
+        "5": 5, "05": 5, "MAIO": 5, "MAI": 5,
+        "6": 6, "06": 6, "JUNHO": 6, "JUN": 6,
+        "7": 7, "07": 7, "JULHO": 7, "JUL": 7,
+        "8": 8, "08": 8, "AGOSTO": 8, "AGO": 8,
+        "9": 9, "09": 9, "SETEMBRO": 9, "SET": 9,
         "10": 10, "OUTUBRO": 10, "OUT": 10,
         "11": 11, "NOVEMBRO": 11, "NOV": 11,
         "12": 12, "DEZEMBRO": 12, "DEZ": 12,
@@ -115,21 +116,16 @@ def aggregate_by_month(dataframe, month_column, value_column=None, output_column
 # 2. CARREGAR DADOS
 # =========================
 def load_data():
-    clean_files = sorted(glob.glob("Datasets_Limpos/*.xlsx"))
-    original_files = sorted(glob.glob("Datasets originais/*.xlsx"))
-    data_files = sorted(glob.glob("data/*.xlsx"))
+    preferred_files = [
+        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabelas_acidentes_2023_limpo.xlsx"),
+        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2023_limpo.xlsx"),
+        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabelas_acidentes_2024_limpo.xlsx"),
+        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2024_limpo.xlsx"),
+    ]
 
-    if clean_files:
-        search_files = clean_files
-    elif original_files:
-        search_files = original_files
-    else:
-        search_files = []
+    files = [path for path in preferred_files if os.path.exists(path)]
 
-    search_files.extend(data_files)
-    files = sorted(set(search_files))
-
-    cache_dir = ".cache"
+    cache_dir = os.path.join(BASE_DIR, ".cache")
     cache_data_path = os.path.join(cache_dir, "accidents_cache.parquet")
     cache_meta_path = os.path.join(cache_dir, "accidents_cache_meta.json")
 
@@ -144,7 +140,6 @@ def load_data():
             with open(cache_meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
             cached_state = meta.get("source_state", {})
-
             if cached_state == source_state:
                 return pd.read_parquet(cache_data_path)
         except Exception:
@@ -165,6 +160,7 @@ def load_data():
         dfs.append(df_local)
 
     if not dfs:
+        print("Aviso: não foi possível carregar os ficheiros de acidentes.")
         return pd.DataFrame()
 
     combined = pd.concat(dfs, ignore_index=True)
@@ -182,8 +178,8 @@ def load_data():
 
 def load_geojson_portugal():
     possible_files = [
-        "ContinenteDistritos.geojson",
-        "data/ContinenteDistritos.geojson"
+        os.path.join(BASE_DIR, "ContinenteDistritos.geojson"),
+        os.path.join(BASE_DIR, "data", "ContinenteDistritos.geojson")
     ]
 
     geojson_path = None
@@ -324,18 +320,246 @@ coords_capitais = {
 }
 
 PORTUGAL_BOUNDS = {
-    "west": -9.6,
-    "east": -6.0,
+    "west": -9.85,
+    "east": -5.85,
     "south": 36.8,
     "north": 42.3,
 }
 
 
 # =========================
-# 5. FUNÇÃO DO MAPA
+# 5. ESTILOS
+# =========================
+PRIMARY = "#153B6D"
+TEXT_DARK = "#1C3252"
+TEXT_MID = "#66758C"
+BG = "#F3F6FB"
+CARD_BG = "#FFFFFF"
+BORDER = "#E1E8F0"
+
+ACCIDENT_LINE = "#5A67F2"
+BAR_COLORS = ["#5A67F2", "#F25C54", "#F4A261", "#52A35E"]
+PIE_COLORS = ["#5A67F2", "#F25C22", "#F9A11B", "#43A047", "#AB47BC", "#90A4AE"]
+MAP_HEIGHT = 478
+LINE_CHART_HEIGHT = MAP_HEIGHT // 2
+DASHBOARD_LINKS = [
+    ("Dashboard Atual", "http://127.0.0.1:8050"),
+    ("Mapa Base", "http://127.0.0.1:8051"),
+    ("Evolução Temporal", "http://127.0.0.1:8052"),
+    ("Comparação por Categoria", "http://127.0.0.1:8053"),
+    ("Comparação Adaptativa", "http://127.0.0.1:8054"),
+    ("Mapa de Precisão", "http://127.0.0.1:8055"),
+    ("Mapa Fish Eye", "http://127.0.0.1:8056"),
+    ("Dashboard Experiência", "http://127.0.0.1:8057"),
+    ("Modo Escuro", "http://127.0.0.1:8058"),
+]
+
+
+def card_style(padding="16px"):
+    return {
+        "background": CARD_BG,
+        "borderRadius": "18px",
+        "padding": padding,
+        "boxShadow": "0 2px 10px rgba(28,50,82,0.06)",
+        "border": f"1px solid {BORDER}",
+    }
+
+
+def section_title_style():
+    return {
+        "margin": "0",
+        "fontSize": "18px",
+        "fontWeight": "700",
+        "color": PRIMARY,
+        "fontFamily": "Arial, sans-serif"
+    }
+
+
+def kpi_style():
+    return {
+        "background": CARD_BG,
+        "borderRadius": "18px",
+        "padding": "18px 20px",
+        "boxShadow": "0 2px 10px rgba(28,50,82,0.06)",
+        "border": f"1px solid {BORDER}",
+        "minHeight": "118px",
+        "display": "flex",
+        "flexDirection": "column",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "textAlign": "center",
+        "gap": "4px"
+    }
+
+
+def hamburger_menu():
+    return html.Details(
+        [
+            html.Summary(
+                "☰",
+                style={
+                    "listStyle": "none",
+                    "fontSize": "28px",
+                    "fontWeight": "700",
+                    "color": PRIMARY,
+                    "cursor": "pointer",
+                    "width": "52px",
+                    "height": "52px",
+                    "display": "flex",
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "background": CARD_BG,
+                    "border": f"1px solid {BORDER}",
+                    "borderRadius": "14px",
+                    "boxShadow": "0 8px 20px rgba(28,50,82,0.10)",
+                },
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        "Navegação",
+                        style={
+                            "fontSize": "13px",
+                            "fontWeight": "700",
+                            "color": TEXT_MID,
+                            "textTransform": "uppercase",
+                            "letterSpacing": "0.06em",
+                            "marginBottom": "10px",
+                        },
+                    ),
+                    html.Div(
+                        [
+                            html.A(
+                                label,
+                                href=href,
+                                target="_self",
+                                style={
+                                    "display": "block",
+                                    "padding": "10px 12px",
+                                    "borderRadius": "10px",
+                                    "color": TEXT_DARK,
+                                    "textDecoration": "none",
+                                    "fontWeight": "600",
+                                    "marginBottom": "6px",
+                                    "background": "#F7FAFE",
+                                },
+                            )
+                            for label, href in DASHBOARD_LINKS
+                        ]
+                    ),
+                    html.Div(
+                        "Cada dashboard tem de estar a correr na porta indicada.",
+                        style={
+                            "fontSize": "12px",
+                            "color": TEXT_MID,
+                            "marginTop": "8px",
+                            "lineHeight": "1.4",
+                        },
+                    ),
+                ],
+                style={
+                    "width": "260px",
+                    "marginTop": "10px",
+                    "padding": "14px",
+                    "background": CARD_BG,
+                    "border": f"1px solid {BORDER}",
+                    "borderRadius": "16px",
+                    "boxShadow": "0 14px 32px rgba(28,50,82,0.14)",
+                },
+            ),
+        ],
+        style={
+            "position": "fixed",
+            "top": "18px",
+            "left": "20px",
+            "zIndex": "1000",
+        },
+    )
+
+
+
+
+def apply_common_figure_style(fig, height=260):
+    fig.update_layout(
+        template="plotly_white",
+        height=height,
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        margin=dict(l=18, r=18, t=48, b=18),
+        title=dict(
+            x=0.02,
+            xanchor="left",
+            font=dict(size=18, color=PRIMARY, family="Arial, sans-serif")
+        ),
+        font=dict(
+            family="Arial, sans-serif",
+            size=12,
+            color=TEXT_DARK
+        ),
+        showlegend=False
+    )
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor="#D8E1EC",
+        tickfont=dict(size=11, color=TEXT_DARK)
+    )
+    fig.update_yaxes(
+        gridcolor="#EAEFF5",
+        zeroline=False,
+        linecolor="#D8E1EC",
+        tickfont=dict(size=11, color=TEXT_DARK)
+    )
+    return fig
+
+
+def format_int_pt(value):
+    return f"{int(value):,}".replace(",", ".")
+
+
+def kpi_prev_label(prev_val):
+    if prev_val is None:
+        return html.Span("Ano anterior: N/A", style={"fontSize": "11px", "color": "#8a94a6"})
+    return html.Span(
+        f"Ano anterior: {format_int_pt(prev_val)}",
+        style={"fontSize": "11px", "color": "#8a94a6"}
+    )
+
+
+def kpi_pct_badge(current, previous, lower_is_better=True):
+    if previous is None or previous == 0:
+        return html.Span(
+            "Sem base",
+            style={
+                "fontSize": "11px",
+                "color": "#8a94a6",
+                "fontWeight": "600"
+            }
+        )
+
+    pct = (current - previous) / previous * 100
+    is_improvement = (pct < 0 and lower_is_better) or (pct > 0 and not lower_is_better)
+    color = "#1b8a5a" if is_improvement else "#cf3c3c"
+    bg = "#eaf7f1" if is_improvement else "#fff1f1"
+    arrow = "▼" if pct < 0 else "▲"
+
+    return html.Span(
+        f"{arrow} {abs(pct):.1f}%",
+        style={
+            "fontSize": "11px",
+            "color": color,
+            "fontWeight": "700",
+            "background": bg,
+            "padding": "4px 8px",
+            "borderRadius": "999px",
+            "display": "inline-block"
+        }
+    )
+
+
+# =========================
+# 6. FUNÇÃO DO MAPA
 # =========================
 def build_map_figure(dff, selected_district):
-    # Sem distrito selecionado: mostra mapa coroplético por distrito.
     if selected_district is None or geojson_portugal is None:
         if "DistritoNorm" in dff.columns and distrito_col:
             mapa_df = (
@@ -353,26 +577,34 @@ def build_map_figure(dff, selected_district):
                 hover_name=distrito_col,
                 hover_data={"DistritoNorm": False, "Acidentes": True},
                 color_continuous_scale="Reds",
-                center={"lat": 39.5, "lon": -8.0},
-                zoom=-0.9,
-                opacity=0.7
+                center={"lat": 39.7, "lon": -8.1},
+                zoom=5.5,
+                opacity=0.78
             )
 
             fig.update_layout(
                 mapbox_style="carto-positron",
-                mapbox={"bounds": PORTUGAL_BOUNDS},
-                margin={"r": 0, "t": 10, "l": 0, "b": 0}
+                margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                paper_bgcolor="white",
+                height=MAP_HEIGHT,
+                width=300,
+                coloraxis_colorbar=dict(
+                    title="Acidentes",
+                    thickness=14,
+                    len=1,
+                    x=0.97
+                )
             )
             return fig
 
         fig = go.Figure()
         fig.update_layout(
-            mapbox={"bounds": PORTUGAL_BOUNDS},
-            margin={"r": 0, "t": 10, "l": 0, "b": 0}
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+            paper_bgcolor="white",
+            height=MAP_HEIGHT
         )
         return fig
 
-    # Com distrito selecionado: filtra acidentes desse distrito com coordenadas válidas.
     if lat_col and lon_col and "DistritoNorm" in dff.columns:
         df_filtrado = dff[
             (dff["DistritoNorm"] == selected_district) &
@@ -384,10 +616,9 @@ def build_map_figure(dff, selected_district):
 
     if df_filtrado.empty:
         fig = go.Figure()
-        fig.update_layout(margin={"r": 0, "t": 10, "l": 0, "b": 0})
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=MAP_HEIGHT)
         return fig
 
-    # Classificação de gravidade para colorir os pontos no mapa.
     if mortais_col and graves_col:
         df_filtrado["gravidade"] = "Ligeiro"
         df_filtrado.loc[df_filtrado[graves_col].fillna(0) > 0, "gravidade"] = "Grave"
@@ -397,12 +628,12 @@ def build_map_figure(dff, selected_district):
 
     coord = coords_capitais.get(selected_district, {"lat": 39.5, "lon": -8.0})
     selected_boundary = None
+
     if geojson_portugal is not None:
         for feature in geojson_portugal.get("features", []):
             props = feature.get("properties", {})
             feature_district = props.get("DistritoNorm") or normalize_text(props.get("Distrito", ""))
             if feature_district == selected_district:
-                # Usa o centroide do polígono para centrar o mapa no distrito clicado.
                 try:
                     district_geom = shape(feature.get("geometry"))
                     centroid = district_geom.centroid
@@ -417,7 +648,6 @@ def build_map_figure(dff, selected_district):
                 }
                 break
 
-    # Cada ponto representa um registo de acidente no distrito selecionado.
     fig = px.scatter_mapbox(
         df_filtrado,
         lat=lat_col,
@@ -426,20 +656,30 @@ def build_map_figure(dff, selected_district):
         hover_name=natureza_col if natureza_col else None,
         hover_data={lat_col: False, lon_col: False},
         color_discrete_map={
-            "Mortal": "black",
-            "Grave": "red",
-            "Ligeiro": "orange",
-            "Acidente": "blue"
+            "Mortal": "#111111",
+            "Grave": "#d62828",
+            "Ligeiro": "#f77f00",
+            "Acidente": "#3a86ff"
         },
-        zoom=8,
+        zoom=7.0,
         center=coord
     )
 
-    fig.update_traces(marker=dict(size=9))
+    fig.update_traces(marker=dict(size=8, opacity=0.82))
     fig.update_layout(
         mapbox_style="carto-positron",
-        mapbox={"bounds": PORTUGAL_BOUNDS},
-        margin={"r": 0, "t": 10, "l": 0, "b": 0}
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        paper_bgcolor="white",
+        height=MAP_HEIGHT,
+        legend=dict(
+            title="Gravidade",
+            orientation="h",
+            yanchor="bottom",
+            y=0.01,
+            xanchor="left",
+            x=0.01,
+            bgcolor="rgba(255,255,255,0.75)"
+        )
     )
 
     if selected_boundary is not None:
@@ -449,8 +689,8 @@ def build_map_figure(dff, selected_district):
                     "sourcetype": "geojson",
                     "source": selected_boundary,
                     "type": "line",
-                    "color": "#b1afaf",
-                    "line": {"width": 2}
+                    "color": "#88a2af",
+                    "line": {"width": 2.5}
                 }
             ]
         )
@@ -459,157 +699,127 @@ def build_map_figure(dff, selected_district):
 
 
 # =========================
-# 6. FUNÇÃO ESTILO KPI
-# =========================
-def kpi_style():
-    return {
-        "background": "white",
-        "borderRadius": "14px",
-        "padding": "18px",
-        "textAlign": "center",
-        "boxShadow": "0 2px 8px rgba(0,0,0,0.08)"
-    }
-
-
-def format_int_pt(value):
-    return f"{int(value):,}".replace(",", ".")
-
-
-def kpi_prev_label(prev_val):
-    if prev_val is None:
-        return html.Span("Ano anterior: N/A", style={"fontSize": "11px", "color": "#888"})
-    return html.Span(
-        f"Ano anterior: {format_int_pt(prev_val)}",
-        style={"fontSize": "11px", "color": "#888"}
-    )
-
-
-def kpi_pct_badge(current, previous, lower_is_better=True):
-    if previous is None or previous == 0:
-        return html.Span("Sem base", style={"fontSize": "12px", "color": "#888", "fontWeight": "bold"})
-
-    pct = (current - previous) / previous * 100
-    is_improvement = (pct < 0 and lower_is_better) or (pct > 0 and not lower_is_better)
-    color = "#2e7d32" if is_improvement else "#c62828"
-    arrow = "▼" if pct < 0 else "▲"
-    return html.Span(
-        f"{arrow} {abs(pct):.1f}%",
-        style={"fontSize": "12px", "color": color, "fontWeight": "bold"}
-    )
-
-
-# =========================
 # 7. APP DASH
 # =========================
 app = Dash(__name__)
-app.title = "Acidentes Rodoviários em Portugal"
-
-anos_disponiveis = sorted(df["Ano"].dropna().unique()) if "Ano" in df.columns else []
+app.title = "Acidentes Rodoviários em Portugal em 2024"
 
 app.layout = html.Div([
     dcc.Store(id="selected-district", data=None),
-
-    html.H1(
-        "Acidentes Rodoviários em Portugal",
-        style={"textAlign": "center", "marginBottom": "16px"}
-    ),
+    hamburger_menu(),
 
     html.Div([
+        html.H1(
+            "Acidentes Rodoviários em Portugal",
+            style={
+                "textAlign": "center",
+                "margin": "0",
+                "color": PRIMARY,
+                "fontSize": "38px",
+                "fontWeight": "800",
+                "fontFamily": "Arial, sans-serif"
+            }
+        ),
+
         html.Div([
-            html.Label("Selecionar Ano:"),
-            dcc.Dropdown(
-                id="year-filter",
-                options=[{"label": str(y), "value": y} for y in anos_disponiveis],
-                value=anos_disponiveis[-1] if anos_disponiveis else None,
-                clearable=False
-            )
-        ], style={"width": "250px"})
-    ], style={
-        "display": "flex",
-        "alignItems": "end",
-        "marginBottom": "20px"
-    }),
+            html.Div(id="kpi-vitimas"),
+            html.Div(id="kpi-graves"),
+            html.Div(id="kpi-distrito"),
+            html.Div(id="kpi-natureza"),
+        ], style={
+            "display": "grid",
+            "gridTemplateColumns": "repeat(4, minmax(0, 1fr))",
+            "gap": "16px",
+            "marginBottom": "16px"
+        }),
 
-    html.Div([
-        html.Div(id="kpi-vitimas", className="kpi-card"),
-        html.Div(id="kpi-graves", className="kpi-card"),
-        html.Div(id="kpi-distrito", className="kpi-card"),
-        html.Div(id="kpi-natureza", className="kpi-card"),
-    ], style={
-        "display": "grid",
-        "gridTemplateColumns": "repeat(4, 1fr)",
-        "gap": "15px",
-        "marginBottom": "20px"
-    }),
-
-    html.Div([
         html.Div([
             html.Div([
-                html.Div(
-                    id="mapa-titulo",
-                    style={
-                        "margin": "0",
-                        "color": "#2b4a74",
-                        "fontSize": "22px",
-                        "fontWeight": "600"
-                    }
-                ),
-                html.Button(
-                    "Limpar seleção do mapa",
-                    id="btn-reset",
-                    n_clicks=0,
-                    style={
-                        "padding": "8px 12px",
-                        "border": "1px solid #cfcfcf",
-                        "borderRadius": "8px",
-                        "background": "#f7f9fc",
-                        "color": "#1f2a44",
-                        "cursor": "pointer",
-                        "fontSize": "14px",
-                        "fontWeight": "600"
-                    }
+                html.Div([
+                    html.H3(id="mapa-titulo", style=section_title_style()),
+                    html.Button(
+                        "Limpar seleção",
+                        id="btn-reset",
+                        n_clicks=0,
+                        style={
+                            "padding": "7px 12px",
+                            "border": f"1px solid {BORDER}",
+                            "borderRadius": "10px",
+                            "background": "#F7FAFE",
+                            "color": PRIMARY,
+                            "cursor": "pointer",
+                            "fontSize": "13px",
+                            "fontWeight": "600"
+                        }
+                    )
+                ], style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "marginBottom": "10px"
+                }),
+
+                dcc.Graph(
+                    id="mapa-distritos",
+                    style={"height": f"{MAP_HEIGHT}px"},
+                    config={"displaylogo": False}
                 )
-            ], style={
-                "display": "flex",
-                "justifyContent": "space-between",
-                "alignItems": "center",
-                "marginBottom": "8px",
-                "gap": "12px"
-            }),
+            ], style={**card_style("14px"), "width": "300px"}),
 
-            dcc.Graph(
-                id="mapa-distritos",
-                style={"height": "620px"},
-                config={"displaylogo": False}
-            )
-        ], style={"width": "48%", "display": "flex", "flexDirection": "column"}),
+            html.Div([
+                html.Div([
+                    dcc.Graph(
+                        id="line-acidentes",
+                        style={"height": f"{LINE_CHART_HEIGHT}px"},
+                        config={"displaylogo": False}
+                    )
+                ], style={**card_style("10px 12px"), "marginBottom": "12px"}),
+
+                html.Div([
+                    dcc.Graph(
+                        id="line-vitimas",
+                        style={"height": f"{LINE_CHART_HEIGHT}px"},
+                        config={"displaylogo": False}
+                    )
+                ], style=card_style("10px 12px"))
+            ], style={"flex": "1 1 0"})
+        ], style={
+            "display": "flex",
+            "gap": "16px",
+            "alignItems": "stretch",
+            "marginBottom": "14px"
+        }),
 
         html.Div([
-            dcc.Graph(id="line-acidentes"),
-            dcc.Graph(id="line-vitimas")
-        ], style={"width": "48%"})
+            html.Div([
+                dcc.Graph(
+                    id="bar-veiculos",
+                    style={"height": "260px"},
+                    config={"displaylogo": False}
+                )
+            ], style={**card_style("10px 12px"), "width": "46%"}),
+
+            html.Div([
+                dcc.Graph(
+                    id="pie-meteorologia",
+                    style={"height": "260px"},
+                    config={"displaylogo": False}
+                )
+            ], style={**card_style("10px 12px"), "width": "54%"})
+        ], style={
+            "display": "flex",
+            "gap": "16px",
+            "alignItems": "stretch"
+        })
     ], style={
-        "display": "flex",
-        "justifyContent": "space-between",
-        "marginBottom": "20px"
-    }),
-
-    html.Div([
-        html.Div([
-            dcc.Graph(id="bar-veiculos")
-        ], style={"width": "48%"}),
-
-        html.Div([
-            dcc.Graph(id="pie-meteorologia")
-        ], style={"width": "48%"})
-    ], style={
-        "display": "flex",
-        "justifyContent": "space-between"
+        "maxWidth": "1320px",
+        "margin": "0 auto"
     })
 ], style={
-    "padding": "20px",
-    "backgroundColor": "#f5f7fb",
-    "fontFamily": "Arial, sans-serif"
+    "padding": "18px 20px 24px 20px",
+    "backgroundColor": BG,
+    "fontFamily": "Arial, sans-serif",
+    "minHeight": "100vh"
 })
 
 
@@ -630,12 +840,10 @@ def manage_selected_district(click_data, reset_clicks):
     trigger = ctx.triggered[0]["prop_id"].split(".")[0]
 
     if trigger == "btn-reset":
-        # Limpa seleção e volta ao mapa principal (distritos).
         return None
 
     if trigger == "mapa-distritos" and click_data is not None:
         point = click_data["points"][0]
-        # No coroplético, a chave "location" traz o distrito clicado.
         if "location" in point:
             return point["location"]
 
@@ -656,15 +864,17 @@ def manage_selected_district(click_data, reset_clicks):
     Output("line-vitimas", "figure"),
     Output("bar-veiculos", "figure"),
     Output("pie-meteorologia", "figure"),
-    Input("year-filter", "value"),
     Input("selected-district", "data")
 )
-def update_dashboard(selected_year, selected_district):
+def update_dashboard(selected_district):
     dff = df.copy()
 
-    # Filtro global por ano aplicado a todos os gráficos/KPIs.
-    if selected_year is not None and "Ano" in dff.columns:
-        dff = dff[dff["Ano"] == selected_year]
+    selected_year = None
+    if "Ano" in dff.columns:
+        anos = pd.to_numeric(dff["Ano"], errors="coerce").dropna().astype(int)
+        if not anos.empty:
+            selected_year = int(anos.max())
+            dff = dff[pd.to_numeric(dff["Ano"], errors="coerce") == selected_year]
 
     total_vitimas = int(dff["Vitimas_Totais"].sum()) if "Vitimas_Totais" in dff.columns else 0
     total_graves = int(dff["Acidente_Grave"].sum()) if "Acidente_Grave" in dff.columns else 0
@@ -692,7 +902,8 @@ def update_dashboard(selected_year, selected_district):
 
     if selected_year is not None and "Ano" in df.columns:
         prev_year = selected_year - 1
-        dff_prev = df[df["Ano"] == prev_year]
+        anos_df = pd.to_numeric(df["Ano"], errors="coerce")
+        dff_prev = df[anos_df == prev_year]
 
         if not dff_prev.empty:
             if "Vitimas_Totais" in dff_prev.columns:
@@ -708,37 +919,47 @@ def update_dashboard(selected_year, selected_district):
                 prev_natureza_count = int((dff_prev[natureza_col].astype(str) == natureza_top).sum())
 
     kpi1 = html.Div([
-        html.H4("Vítimas Totais"),
-        html.H2(format_int_pt(total_vitimas)),
-        kpi_pct_badge(total_vitimas, prev_vitimas, lower_is_better=True),
-        kpi_prev_label(prev_vitimas)
+        
+        html.Div([
+            html.Div("Vítimas Totais", style={"fontSize": "13px", "fontWeight": "600", "color": TEXT_MID}),
+            html.Div(format_int_pt(total_vitimas), style={"fontSize": "26px", "fontWeight": "800", "color": TEXT_DARK, "lineHeight": "1.1"}),
+            html.Div([kpi_pct_badge(total_vitimas, prev_vitimas, lower_is_better=True)], style={"marginTop": "6px", "marginBottom": "4px"}),
+            kpi_prev_label(prev_vitimas)
+        ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
     ], style=kpi_style())
 
     kpi2 = html.Div([
-        html.H4("Acidentes Graves"),
-        html.H2(format_int_pt(total_graves)),
-        kpi_pct_badge(total_graves, prev_graves, lower_is_better=True),
-        kpi_prev_label(prev_graves)
+        
+        html.Div([
+            html.Div("Acidentes Graves", style={"fontSize": "13px", "fontWeight": "600", "color": TEXT_MID}),
+            html.Div(format_int_pt(total_graves), style={"fontSize": "26px", "fontWeight": "800", "color": TEXT_DARK, "lineHeight": "1.1"}),
+            html.Div([kpi_pct_badge(total_graves, prev_graves, lower_is_better=True)], style={"marginTop": "6px", "marginBottom": "4px"}),
+            kpi_prev_label(prev_graves)
+        ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
     ], style=kpi_style())
 
     kpi3 = html.Div([
-        html.H4("Distrito Crítico"),
-        html.H2(str(distrito_critico)),
-        html.Span(f"{format_int_pt(distrito_count)} acidentes", style={"fontSize": "12px", "color": "#555"}),
-        kpi_pct_badge(distrito_count, prev_distrito_count, lower_is_better=True),
-        kpi_prev_label(prev_distrito_count)
+        html.Div([
+            html.Div("Distrito Crítico", style={"fontSize": "13px", "fontWeight": "600", "color": TEXT_MID}),
+            html.Div(str(distrito_critico), style={"fontSize": "24px", "fontWeight": "800", "color": TEXT_DARK, "lineHeight": "1.1"}),
+            html.Div(f"{format_int_pt(distrito_count)} acidentes", style={"fontSize": "12px", "color": TEXT_MID, "marginTop": "2px"}),
+            html.Div([kpi_pct_badge(distrito_count, prev_distrito_count, lower_is_better=True)], style={"marginTop": "6px", "marginBottom": "4px"}),
+            kpi_prev_label(prev_distrito_count)
+        ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
     ], style=kpi_style())
 
     kpi4 = html.Div([
-        html.H4("Natureza"),
-        html.H2(str(natureza_top)),
-        html.Span(f"{format_int_pt(natureza_count)} acidentes", style={"fontSize": "12px", "color": "#555"}),
-        kpi_pct_badge(natureza_count, prev_natureza_count, lower_is_better=True),
-        kpi_prev_label(prev_natureza_count)
+        html.Div([
+            html.Div("Natureza", style={"fontSize": "13px", "fontWeight": "600", "color": TEXT_MID}),
+            html.Div(str(natureza_top), style={"fontSize": "24px", "fontWeight": "800", "color": TEXT_DARK, "lineHeight": "1.1"}),
+            html.Div(f"{format_int_pt(natureza_count)} acidentes", style={"fontSize": "12px", "color": TEXT_MID, "marginTop": "2px"}),
+            html.Div([kpi_pct_badge(natureza_count, prev_natureza_count, lower_is_better=True)], style={"marginTop": "6px", "marginBottom": "4px"}),
+            kpi_prev_label(prev_natureza_count)
+        ], style={"display": "flex", "flexDirection": "column", "justifyContent": "center"})
     ], style=kpi_style())
 
     mapa_titulo = (
-        f"Distribuição de Acidentes: {selected_district}"
+        f"Distribuição de Acidentes - {selected_district.title()}"
         if selected_district
         else "Distribuição de Acidentes"
     )
@@ -754,14 +975,21 @@ def update_dashboard(selected_year, selected_district):
             markers=True,
             title="Evolução Mensal (Acidentes)"
         )
+        fig_line_ac.update_traces(
+            line=dict(width=2.5, color=ACCIDENT_LINE),
+            marker=dict(size=6, color=ACCIDENT_LINE)
+        )
         fig_line_ac.update_layout(
-            xaxis_title="Mês",
+            xaxis_title="",
             yaxis_title="Nº de Acidentes",
             xaxis=dict(categoryorder="array", categoryarray=MONTH_ORDER)
         )
+        fig_line_ac.update_xaxes(tickangle=40)
+        apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
     else:
         fig_line_ac = go.Figure()
         fig_line_ac.update_layout(title="Evolução Mensal (Acidentes)")
+        apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
 
     if mes_col and mes_col in dff.columns and "Vitimas_Totais" in dff.columns:
         vitimas_mes = aggregate_by_month(
@@ -777,14 +1005,21 @@ def update_dashboard(selected_year, selected_district):
             markers=True,
             title="Evolução Mensal (Vítimas)"
         )
+        fig_line_vit.update_traces(
+            line=dict(width=2.5, color=ACCIDENT_LINE),
+            marker=dict(size=6, color=ACCIDENT_LINE)
+        )
         fig_line_vit.update_layout(
-            xaxis_title="Mês",
+            xaxis_title="",
             yaxis_title="Nº de Vítimas",
             xaxis=dict(categoryorder="array", categoryarray=MONTH_ORDER)
         )
+        fig_line_vit.update_xaxes(tickangle=40)
+        apply_common_figure_style(fig_line_vit, height=LINE_CHART_HEIGHT)
     else:
         fig_line_vit = go.Figure()
         fig_line_vit.update_layout(title="Evolução Mensal (Vítimas)")
+        apply_common_figure_style(fig_line_vit, height=LINE_CHART_HEIGHT)
 
     veiculos = []
     valores = []
@@ -812,25 +1047,66 @@ def update_dashboard(selected_year, selected_district):
             x="Tipo",
             y="Total",
             title="Tipos de Veículo Envolvidos",
-            text_auto=True
+            text=df_veiculos["Total"].apply(format_int_pt)
         )
-        fig_bar.update_layout(xaxis_title="Tipo de Veículo", yaxis_title="Total")
+        fig_bar.update_traces(
+            textposition="outside",
+            marker_color=BAR_COLORS[:len(df_veiculos)],
+            marker_line_width=0
+        )
+        fig_bar.update_layout(
+            xaxis_title="",
+            yaxis_title="Total"
+        )
+        apply_common_figure_style(fig_bar, height=260)
     else:
         fig_bar = go.Figure()
         fig_bar.update_layout(title="Tipos de Veículo Envolvidos")
+        apply_common_figure_style(fig_bar, height=260)
 
     if meteo_col and meteo_col in dff.columns:
         meteo_df = dff[meteo_col].astype(str).value_counts().reset_index()
         meteo_df.columns = ["Meteorologia", "Total"]
+
         fig_pie = px.pie(
             meteo_df,
             names="Meteorologia",
             values="Total",
-            title="Meteorologia"
+            title="Meteorologia",
+            hole=0.56,
+            color_discrete_sequence=PIE_COLORS
+        )
+
+        fig_pie.update_traces(
+            textinfo="none",
+            sort=False
+        )
+
+        fig_pie.update_layout(
+            height=260,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            margin=dict(l=18, r=18, t=48, b=18),
+            title=dict(
+                x=0.02,
+                xanchor="left",
+                font=dict(size=18, color=PRIMARY, family="Arial, sans-serif")
+            ),
+            font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK),
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                x=0.72,
+                y=0.5,
+                xanchor="left",
+                yanchor="middle",
+                bgcolor="rgba(255,255,255,0)"
+            )
         )
     else:
         fig_pie = go.Figure()
         fig_pie.update_layout(title="Meteorologia")
+        apply_common_figure_style(fig_pie, height=260)
 
     return (
         kpi1,
@@ -850,4 +1126,4 @@ def update_dashboard(selected_year, selected_district):
 # 10. RUN
 # =========================
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False, port=8050)

@@ -147,4 +147,4 @@ def update_graphs(ano1, ano2, mes, atrib1, atrib2):
     return criar_figura_adaptativa(atrib1), criar_figura_adaptativa(atrib2)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=8054)
