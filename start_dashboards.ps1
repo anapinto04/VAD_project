@@ -42,15 +42,10 @@ function Start-DashboardProcess {
 $pythonCommand = Get-PythonCommand
 
 $dashboards = @(
-    @{ Title = "Dashboard Atual"; Script = "app copy.py" },
-    @{ Title = "Mapa Base"; Script = "app.py" },
-    @{ Title = "Evolucao Temporal"; Script = "dashboard2.py" },
-    @{ Title = "Comparacao por Categoria"; Script = "dashboard3.py" },
-    @{ Title = "Comparacao Adaptativa"; Script = "dasboard3_2.py" },
-    @{ Title = "Mapa de Precisao"; Script = "dashboard4.py" },
-    @{ Title = "Mapa Fish Eye"; Script = "dashboard4_2.py" },
-    @{ Title = "Dashboard Experiencia"; Script = "dashboard_experiencia.py" },
-    @{ Title = "Modo Escuro"; Script = "modo.escuro.py" }
+    @{ Title = "Dashboard Principal"; Script = "dashboard_principal.py" },
+    @{ Title = "Evolucao Temporal"; Script = "dashboard_evolucao_temporal.py" },
+    @{ Title = "Comparacao por Categoria"; Script = "dashboard_comparacao_entre_anos.py" },
+
 )
 
 foreach ($dashboard in $dashboards) {
