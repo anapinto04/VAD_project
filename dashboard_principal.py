@@ -839,8 +839,8 @@ def update_dashboard(selected_district):
         anos_df = pd.to_numeric(df["Ano"], errors="coerce")
         dff_prev = df[anos_df == prev_year]
 
-        if selected_district is not None and "DistritoNorm" in dff_prev.columns:
-            dff_prev = dff_prev[dff_prev["DistritoNorm"] == selected_district]
+        if selected_district is not None and "Distrito" in dff_prev.columns:
+            dff_prev = dff_prev[dff_prev["Distrito"] == selected_district]
 
         if not dff_prev.empty:
             prev_vitimas = int(dff_prev["Vitimas_Totais"].sum())

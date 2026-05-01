@@ -327,7 +327,6 @@ def hamburger_style():
 # ==============================================================================
 app = dash.Dash(__name__)
 app.title = "Evolução Temporal da Sinistralidade"
-
 app.layout = html.Div(
     style={
         "fontFamily": "Arial, sans-serif",
@@ -347,31 +346,13 @@ app.layout = html.Div(
         html.Div(
             id="sidebar-menu",
             children=[
-                html.H2(
-                    "Menu",
-                    style={
-                        "margin": "0",
-                        "color": PRIMARY,
-                        "fontSize": "24px",
-                        "fontWeight": "800"
-                    }
-                ),
-                html.P(
-                    "Dashboards",
-                    style={
-                        "margin": "4px 0 24px 0",
-                        "color": TEXT_MID,
-                        "fontSize": "13px"
-                    }
-                ),
+                html.H2("Menu", style={"margin": "0", "color": PRIMARY, "fontSize": "24px", "fontWeight": "800"}),
+                html.P("Dashboards", style={"margin": "4px 0 24px 0", "color": TEXT_MID, "fontSize": "13px"}),
 
                 html.A("Mapa Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
                 html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style(active=True)),
                 html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style()),
-                
 
-
-                
                 html.Div(
                     "Clica novamente em ☰ para fechar o menu.",
                     style={
@@ -381,7 +362,6 @@ app.layout = html.Div(
                         "right": "20px",
                         "fontSize": "12px",
                         "color": TEXT_MID,
-                        "lineHeight": "1.4"
                     }
                 )
             ],
@@ -389,11 +369,10 @@ app.layout = html.Div(
         ),
 
         html.Div(
-            style={
-                "maxWidth": "1320px",
-                "margin": "0 auto"
-            },
+            style={"maxWidth": "1320px", "margin": "0 auto"},
             children=[
+
+                # HEADER
                 html.Div(
                     style={
                         **card_style("20px"),
@@ -403,44 +382,21 @@ app.layout = html.Div(
                         "marginBottom": "16px"
                     },
                     children=[
-                        html.H1(
-                            "Evolução Temporal da Sinistralidade",
-                            style={
-                                "margin": "0",
-                                "color": PRIMARY,
-                                "fontSize": "34px",
-                                "fontWeight": "800"
-                            }
-                        ),
+                        html.H1("Evolução Temporal da Sinistralidade",
+                                style={"margin": "0", "color": PRIMARY, "fontSize": "34px"}),
 
-                        html.Div(
-                            style={"display": "flex", "alignItems": "center"},
-                            children=[
-                                html.Span(
-                                    "Anos em análise:",
-                                    style={
-                                        "marginRight": "15px",
-                                        "fontWeight": "700",
-                                        "color": TEXT_MID,
-                                        "fontSize": "14px"
-                                    }
-                                ),
-                                dcc.Dropdown(
-                                    id="multi-drop-anos",
-                                    options=[
-                                        {"label": str(a), "value": a}
-                                        for a in anos_disponiveis
-                                    ],
-                                    value=valor_inicial_anos,
-                                    multi=True,
-                                    clearable=False,
-                                    style={"minWidth": "300px"}
-                                )
-                            ]
+                        dcc.Dropdown(
+                            id="multi-drop-anos",
+                            options=[{"label": str(a), "value": a} for a in anos_disponiveis],
+                            value=valor_inicial_anos,
+                            multi=True,
+                            clearable=False,
+                            style={"minWidth": "300px"}
                         )
                     ]
                 ),
 
+                # GRÁFICO 1
                 html.Div(
                     style={**card_style("25px"), "marginBottom": "16px"},
                     children=[
@@ -453,23 +409,26 @@ app.layout = html.Div(
                                 "fontWeight": "700"
                             }
                         ),
-                        dcc.Graph(
-                            id="graph-linhas-mensal",
-                            config={"displaylogo": False}
+
+                        dcc.Loading(
+                            type="circle",
+                            delay_show=1400,
+                            delay_hide=200,
+                            children=dcc.Graph(id="graph-linhas-mensal")
                         )
                     ]
                 ),
 
+                # OUTROS GRÁFICOS
                 html.Div(
-                    style={
-                        "display": "flex",
-                        "gap": "16px",
-                        "alignItems": "stretch"
-                    },
+                    style={"display": "flex", "gap": "16px"},
                     children=[
+
+                        # BLOCO ESQUERDO
                         html.Div(
                             style={**card_style("25px"), "flex": "1"},
                             children=[
+
                                 html.Div(
                                     style={
                                         "display": "flex",
@@ -487,25 +446,29 @@ app.layout = html.Div(
                                                 "fontWeight": "700"
                                             }
                                         ),
-                                    dcc.Dropdown( #mês para filtrar o gráfico de barras
-                                        id="drop-mes-inferior",
-                                        options=[
-                                            {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
-                                            for i in range(1, 13)
-                                        ],
-                                        value="JAN",
-                                        clearable=False,
-                                        style={"width": "160px"}
-                                    )
+
+                                        dcc.Dropdown(
+                                            id="drop-mes-inferior",
+                                            options=[
+                                                {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
+                                                for i in range(1, 13)
+                                            ],
+                                            value="JAN",
+                                            clearable=False
+                                        )
                                     ]
                                 ),
-                                dcc.Graph(
-                                    id="graph-barras-dias",
-                                    config={"displaylogo": False}
+
+                                dcc.Loading(
+                                    type="circle",
+                                    delay_show=1400,
+                                    delay_hide=200,
+                                    children=dcc.Graph(id="graph-barras-dias")
                                 )
                             ]
                         ),
 
+                        # BLOCO DIREITO
                         html.Div(
                             style={**card_style("25px"), "flex": "1.5"},
                             children=[
@@ -518,9 +481,12 @@ app.layout = html.Div(
                                         "fontWeight": "700"
                                     }
                                 ),
-                                dcc.Graph(
-                                    id="graph-heatmap-horas",
-                                    config={"displaylogo": False}
+
+                                dcc.Loading(
+                                    type="circle",
+                                    delay_show=1400,
+                                    delay_hide=200,
+                                    children=dcc.Graph(id="graph-heatmap-horas")
                                 )
                             ]
                         )
@@ -530,7 +496,6 @@ app.layout = html.Div(
         )
     ]
 )
-
 
 # ==============================================================================
 # 6. CALLBACK DO MENU

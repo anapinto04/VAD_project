@@ -44,8 +44,7 @@ $pythonCommand = Get-PythonCommand
 $dashboards = @(
     @{ Title = "Dashboard Principal"; Script = "dashboard_principal.py" },
     @{ Title = "Evolucao Temporal"; Script = "dashboard_evolucao_temporal.py" },
-    @{ Title = "Comparacao por Categoria"; Script = "dashboard_comparacao_entre_anos.py" },
-
+    @{ Title = "Comparacao por Categoria"; Script = "dashboard_comparacao_entre_anos.py" }
 )
 
 foreach ($dashboard in $dashboards) {

@@ -379,23 +379,18 @@ app.layout = html.Div(
         html.Div(
             id="sidebar-menu",
             children=[
-                html.H2(
-                    "Menu",
-                    style={
-                        "margin": "0",
-                        "color": PRIMARY,
-                        "fontSize": "24px",
-                        "fontWeight": "800"
-                    }
-                ),
-                html.P(
-                    "Dashboards",
-                    style={
-                        "margin": "4px 0 24px 0",
-                        "color": TEXT_MID,
-                        "fontSize": "13px"
-                    }
-                ),
+                html.H2("Menu", style={
+                    "margin": "0",
+                    "color": PRIMARY,
+                    "fontSize": "24px",
+                    "fontWeight": "800"
+                }),
+
+                html.P("Dashboards", style={
+                    "margin": "4px 0 24px 0",
+                    "color": TEXT_MID,
+                    "fontSize": "13px"
+                }),
 
                 html.A("Dashboard Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
                 html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style()),
@@ -417,159 +412,179 @@ app.layout = html.Div(
             style=sidebar_style(False)
         ),
 
-        html.Div(
-            style={
-                "maxWidth": "1320px",
-                "margin": "0 auto"
-            },
-            children=[
+
                 html.Div(
                     style={
-                        **card_style("20px"),
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "marginBottom": "16px",
-                        "gap": "20px"
+                        "maxWidth": "1320px",
+                        "margin": "0 auto"
                     },
                     children=[
-                        html.Div([
-                            html.H1(
-                                "Análise Comparativa da Sinistralidade",
-                                style={
-                                    "margin": "0",
-                                    "color": PRIMARY,
-                                    "fontSize": "34px",
-                                    "fontWeight": "800"
-                                }
-                            ),
-                            html.P(
-                                "Comparação entre anos por tipo de veículo, meteorologia, natureza ou tipo de via.",
-                                style={
-                                    "margin": "6px 0 0 0",
-                                    "color": TEXT_MID,
-                                    "fontSize": "14px"
-                                }
-                            )
-                        ]),
 
+                        # HEADER
                         html.Div(
                             style={
+                                **card_style("20px"),
                                 "display": "flex",
-                                "gap": "14px",
-                                "alignItems": "flex-end",
-                                "flexWrap": "wrap",
-                                "justifyContent": "flex-end"
+                                "justifyContent": "space-between",
+                                "alignItems": "center",
+                                "marginBottom": "16px",
+                                "gap": "20px"
                             },
                             children=[
+
                                 html.Div([
-                                    html.Label("Analisar por", style=dropdown_label_style()),
-                                    dcc.Dropdown(
-                                        id="atributo-dinamico",
-                                        options=[
-                                            {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
-                                            {"label": "Meteorologia", "value": "Meteorologia"},
-                                            {"label": "Natureza do acidente", "value": "Natureza"},
-                                            {"label": "Tipo de Via", "value": "Tipo_Via"},
-                                        ],
-                                        value="Tipo_Veiculo",
-                                        clearable=False,
-                                        style=dropdown_style("190px")
+                                    html.H1(
+                                        "Análise Comparativa da Sinistralidade",
+                                        style={
+                                            "margin": "0",
+                                            "color": PRIMARY,
+                                            "fontSize": "34px",
+                                            "fontWeight": "800"
+                                        }
+                                    ),
+                                    html.P(
+                                        "Comparação entre anos por tipo de veículo, meteorologia, natureza ou tipo de via.",
+                                        style={
+                                            "margin": "6px 0 0 0",
+                                            "color": TEXT_MID,
+                                            "fontSize": "14px"
+                                        }
                                     )
                                 ]),
 
-                                html.Div([
-                                    html.Label("Ano Base", style=dropdown_label_style()),
-                                    dcc.Dropdown(
-                                        id="ano-1",
-                                        options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                                        value=ano_base_default,
-                                        clearable=False,
-                                        style=dropdown_style("110px")
-                                    )
-                                ]),
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "gap": "14px",
+                                        "alignItems": "flex-end",
+                                        "flexWrap": "wrap",
+                                        "justifyContent": "flex-end"
+                                    },
+                                    children=[
 
-                                html.Div([
-                                    html.Label("Comparar", style=dropdown_label_style()),
-                                    dcc.Dropdown(
-                                        id="ano-2",
-                                        options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                                        value=ano_comp_default,
-                                        clearable=False,
-                                        style=dropdown_style("110px")
-                                    )
-                                ]),
+                                        html.Div([
+                                            html.Label("Analisar por", style=dropdown_label_style()),
+                                            dcc.Dropdown(
+                                                id="atributo-dinamico",
+                                                options=[
+                                                    {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
+                                                    {"label": "Meteorologia", "value": "Meteorologia"},
+                                                    {"label": "Natureza do acidente", "value": "Natureza"},
+                                                    {"label": "Tipo de Via", "value": "Tipo_Via"},
+                                                ],
+                                                value="Tipo_Veiculo",
+                                                clearable=False,
+                                                style=dropdown_style("190px")
+                                            )
+                                        ]),
 
-                                html.Div([
-                                    html.Label("Mês", style=dropdown_label_style()),
-                                    dcc.Dropdown(
-                                        id="mes-filtro",
-                                        options=[{"label": "Todos", "value": "Geral"}] + [
-                                            {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
-                                            for i in range(1, 13)
-                                        ],
-                                        value="Geral",
-                                        clearable=False,
-                                        style=dropdown_style("160px")
-                                    )
-                                ])
-                            ]
-                        )
-                    ]
-                ),
+                                        html.Div([
+                                            html.Label("Ano Base", style=dropdown_label_style()),
+                                            dcc.Dropdown(
+                                                id="ano-1",
+                                                options=[{"label": str(a), "value": a} for a in anos_disponiveis],
+                                                value=ano_base_default,
+                                                clearable=False,
+                                                style=dropdown_style("110px")
+                                            )
+                                        ]),
 
-                html.Div(
-                    style={
-                        "display": "grid",
-                        "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
-                        "gap": "16px"
-                    },
-                    children=[
-                        html.Div(
-                            style={**card_style("20px")},
-                            children=[
-                                html.Div(id="tit-1", style={
-                                    "textAlign": "center",
-                                    "margin": "0 0 14px 0",
-                                    "color": TEXT_DARK,
-                                    "fontSize": "18px",
-                                    "fontWeight": "800"
-                                }),
-                                html.Div(id="subtit-1", style={
-                                    "textAlign": "center",
-                                    "margin": "-8px 0 10px 0",
-                                    "color": TEXT_MID,
-                                    "fontSize": "13px"
-                                }),
-                                dcc.Graph(id="graph-1", config={"displaylogo": False})
+                                        html.Div([
+                                            html.Label("Comparar", style=dropdown_label_style()),
+                                            dcc.Dropdown(
+                                                id="ano-2",
+                                                options=[{"label": str(a), "value": a} for a in anos_disponiveis],
+                                                value=ano_comp_default,
+                                                clearable=False,
+                                                style=dropdown_style("110px")
+                                            )
+                                        ]),
+
+                                        html.Div([
+                                            html.Label("Mês", style=dropdown_label_style()),
+                                            dcc.Dropdown(
+                                                id="mes-filtro",
+                                                options=[{"label": "Todos", "value": "Geral"}] + [
+                                                    {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
+                                                    for i in range(1, 13)
+                                                ],
+                                                value="Geral",
+                                                clearable=False,
+                                                style=dropdown_style("160px")
+                                            )
+                                        ])
+                                    ]
+                                )
                             ]
                         ),
 
+                        # GRÁFICOS
                         html.Div(
-                            style={**card_style("20px")},
+                            style={
+                                "display": "grid",
+                                "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
+                                "gap": "16px"
+                            },
                             children=[
-                                html.Div(id="tit-2", style={
-                                    "textAlign": "center",
-                                    "margin": "0 0 14px 0",
-                                    "color": TEXT_DARK,
-                                    "fontSize": "18px",
-                                    "fontWeight": "800"
-                                }),
-                                html.Div(id="subtit-2", style={
-                                    "textAlign": "center",
-                                    "margin": "-8px 0 10px 0",
-                                    "color": TEXT_MID,
-                                    "fontSize": "13px"
-                                }),
-                                dcc.Graph(id="graph-2", config={"displaylogo": False})
+
+                                html.Div(
+                                    style=card_style("20px"),
+                                    children=[
+                                        html.Div(id="tit-1", style={
+                                            "textAlign": "center",
+                                            "margin": "0 0 14px 0",
+                                            "color": TEXT_DARK,
+                                            "fontSize": "18px",
+                                            "fontWeight": "800"
+                                        }),
+                                        html.Div(id="subtit-1", style={
+                                            "textAlign": "center",
+                                            "margin": "-8px 0 10px 0",
+                                            "color": TEXT_MID,
+                                            "fontSize": "13px"
+                                        }),
+                                        dcc.Loading(
+                                            type='circle',
+                                            delay_show=200,
+                                            delay_hide=200,
+                                            children=dcc.Graph(id="graph-1", config={"displaylogo": False})
+                                        )
+
+                                    ]
+                                ),
+
+                                html.Div(
+                                    style=card_style("20px"),
+                                    children=[
+                                        html.Div(id="tit-2", style={
+                                            "textAlign": "center",
+                                            "margin": "0 0 14px 0",
+                                            "color": TEXT_DARK,
+                                            "fontSize": "18px",
+                                            "fontWeight": "800"
+                                        }),
+                                        html.Div(id="subtit-2", style={
+                                            "textAlign": "center",
+                                            "margin": "-8px 0 10px 0",
+                                            "color": TEXT_MID,
+                                            "fontSize": "13px"
+                                        }),
+                                        dcc.Loading(
+                                            type = 'circle',
+                                            delay_show=200,
+                                            delay_hide=200,
+                                            children = dcc.Graph(id="graph-2", config={"displaylogo": False})
+                                        )
+
+                                    ]
+                                )
                             ]
                         )
                     ]
                 )
             ]
         )
-    ]
-)
+
 
 
 # ==============================================================================
