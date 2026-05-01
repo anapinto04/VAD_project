@@ -195,32 +195,19 @@ graves_col = find_column(df, ["Feridos graves 30 dias"])
 leves_col = find_column(df, ["Feridos leves 30 dias"])
 
 ligeiros_col = find_column(df, [
-    "Nº de Ligeiros", "No de Ligeiros", "Num Ligeiros",
-    "Num veículos ligeiros", "Num veiculos ligeiros"
+    "# Veículos Ligeiros"
 ])
 
 pesados_col = find_column(df, [
-    "Nº de Pesados", "No de Pesados", "Num Pesados",
-    "Num veículos pesados", "Num veiculos pesados"
+    "# Veículos Pesados"
 ])
 
 motos_col = find_column(df, [
-    "Nº de Motociclos",
-    "No de Motociclos",
-    "Num Motociclos",
-    "Num veículos de duas rodas",
-    "Num veiculos de duas rodas",
-    "Num ciclomotores/motociclos",
-    "Num ciclomotores e motociclos",
-    "Num ciclomotores",
+    "# Ciclomotores / Motociclos",
 ])
 
 outros_col = find_column(df, [
-    "Num outros veículos",
-    "Num outros veiculos",
-    "Nº de Outros",
-    "No de Outros",
-    "Num Outros",
+    "# Outros Veículos",
 ])
 
 if distrito_col:
@@ -668,29 +655,46 @@ app.layout = html.Div([
                     "alignItems": "center",
                     "marginBottom": "10px"
                 }),
-
-                dcc.Graph(
+                dcc.Loading(
+                    type="circle",
+                    delay_show=200,
+                    delay_hide=200,
+                    children=dcc.Graph(
                     id="mapa-distritos",
                     style={"height": f"{MAP_HEIGHT}px"},
                     config={"displaylogo": False}
                 )
+                )
+
             ], style={**card_style("14px"), "width": "42%"}),
 
             html.Div([
                 html.Div([
-                    dcc.Graph(
+                    dcc.Loading(
+                        type="circle",  
+                        delay_show=200,
+                        delay_hide=200,
+                        children= dcc.Graph(
                         id="line-acidentes",
                         style={"height": f"{LINE_CHART_HEIGHT}px"},
                         config={"displaylogo": False}
                     )
+                    )
+
                 ], style={**card_style("10px 12px"), "marginBottom": "12px"}),
 
                 html.Div([
-                    dcc.Graph(
+                    dcc.Loading(                        
+                        type="circle",  
+                        delay_show=200,
+                        delay_hide=200,
+                        children= dcc.Graph(
                         id="line-vitimas",
                         style={"height": f"{LINE_CHART_HEIGHT}px"},
                         config={"displaylogo": False}
                     )
+                        )
+
                 ], style=card_style("10px 12px"))
             ], style={"flex": "1 1 0"})
         ], style={
@@ -702,19 +706,31 @@ app.layout = html.Div([
 
         html.Div([
             html.Div([
-                dcc.Graph(
-                    id="bar-veiculos",
-                    style={"height": "260px"},
-                    config={"displaylogo": False}
-                )
+                dcc.Loading(                    
+                        type="circle",  
+                        delay_show=200,
+                        delay_hide=200,
+                        children= dcc.Graph(
+                        id="bar-veiculos",
+                        style={"height": "260px"},
+                        config={"displaylogo": False}
+                        )
+                        )
+                
             ], style={**card_style("10px 12px"), "width": "46%"}),
 
             html.Div([
-                dcc.Graph(
+                dcc.Loading(
+                        type="circle",  
+                        delay_show=200,
+                        delay_hide=200,
+                        children= dcc.Graph(
                     id="pie-meteorologia",
                     style={"height": "260px"},
                     config={"displaylogo": False}
                 )
+                )
+
             ], style={**card_style("10px 12px"), "width": "54%"})
         ], style={
             "display": "flex",
