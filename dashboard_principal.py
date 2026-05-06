@@ -462,7 +462,7 @@ def build_map_figure(dff, selected_district):
                 color="Acidentes",
                 hover_name=distrito_col,
                 hover_data={"DistritoNorm": False, "Acidentes": True},
-                color_continuous_scale="Reds",
+                color_continuous_scale="Blues",
                 center={"lat": 39.7, "lon": -8.1},
                 zoom=5.5,
                 opacity=0.78
@@ -556,6 +556,7 @@ app.title = "Acidentes Rodoviários em Portugal"
 
 app.layout = html.Div([
     dcc.Store(id="selected-district", data=None),
+    dcc.Store(id="selected-month", data=None),
 
     html.Button(
         "☰",
@@ -607,7 +608,7 @@ app.layout = html.Div([
 
     html.Div([
         html.H1(
-            "Acidentes Rodoviários em Portugal",
+            id="main-title",
             style={
                 "textAlign": "center",
                 "margin": "0 0 18px 0",
@@ -670,6 +671,22 @@ app.layout = html.Div([
 
             html.Div([
                 html.Div([
+                    html.Button(
+                        "Limpar mês",
+                        id="btn-reset-month",
+                        n_clicks=0,
+                        style={
+                            "padding": "7px 12px",
+                            "border": f"1px solid {BORDER}",
+                            "borderRadius": "10px",
+                            "background": "#F7FAFE",
+                            "color": PRIMARY,
+                            "cursor": "pointer",
+                            "fontSize": "13px",
+                            "fontWeight": "600",
+                            "marginBottom": "10px"
+                        }
+                    ),
                     dcc.Loading(
                         type="circle",  
                         delay_show=200,
@@ -789,11 +806,76 @@ def manage_selected_district(click_data, reset_clicks):
 
     return None
 
+# =========================
+# CALLBACK MES
+# =========================
+'''
+@app.callback(
+    Output("selected-month", "data"),
+    Input("line-acidentes", "hoverData"),
+    Input("line-vitimas", "hoverData"),
+    Input("btn-reset-month", "n_clicks"),
+    prevent_initial_call=True
+)
+def update_selected_month(hover_acidentes, hover_vitimas,reset_clicks):
+    ctx = callback_context
 
+    if not ctx.triggered:
+        return None
+    
+    trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+
+            # 👉 Se clicou no botão → limpa mês
+    if trigger == "btn-reset-month":
+        return None
+    hover_data = None
+    if trigger == "line-acidentes":
+        hover_data = hover_acidentes
+    elif trigger == "line-vitimas":
+        hover_data = hover_vitimas
+    # 👉 Se veio de hover → seleciona mês
+
+    if hover_data and "points" in hover_data:
+        mes = hover_data["points"][0]["x"]
+        return mes
+
+    return None
+'''
+@app.callback(
+    Output("selected-month", "data"),
+    Input("line-acidentes", "clickData"),
+    Input("line-vitimas", "clickData"),
+    Input("btn-reset-month", "n_clicks"),
+    prevent_initial_call=True
+)
+def update_selected_month(click_acidentes, click_vitimas, reset_clicks):
+    ctx = callback_context
+
+    if not ctx.triggered:
+        return None
+
+    trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    # reset
+    if trigger == "btn-reset-month":
+        return None
+
+    data = None
+
+    if trigger == "line-acidentes":
+        data = click_acidentes
+    elif trigger == "line-vitimas":
+        data = click_vitimas
+
+    if data and isinstance(data, dict) and "points" in data:
+        return data["points"][0]["x"]
+
+    return None
 # =========================
 # 10. CALLBACK PRINCIPAL
 # =========================
 @app.callback(
+    Output("main-title", "children"),
     Output("kpi-vitimas", "children"),
     Output("kpi-graves", "children"),
     Output("kpi-distrito", "children"),
@@ -804,68 +886,113 @@ def manage_selected_district(click_data, reset_clicks):
     Output("line-vitimas", "figure"),
     Output("bar-veiculos", "figure"),
     Output("pie-meteorologia", "figure"),
-    Input("selected-district", "data")
+    Input("selected-district", "data"),
+    Input("selected-month", "data")
 )
-def update_dashboard(selected_district):
+def update_dashboard(selected_district, selected_month):
 
-    dff = df.copy()
+    base_df = df.copy()
 
+    # =========================
+    # 1. ANO ATUAL
+    # =========================
     selected_year = None
-    if "Ano" in dff.columns:
-        anos = pd.to_numeric(dff["Ano"], errors="coerce").dropna().astype(int)
+    if "Ano" in base_df.columns:
+        anos = pd.to_numeric(base_df["Ano"], errors="coerce").dropna().astype(int)
         if not anos.empty:
             selected_year = int(anos.max())
-            dff = dff[pd.to_numeric(dff["Ano"], errors="coerce") == selected_year]
 
-    dff_charts = dff.copy()
+    # =========================
+    # 2. DATASETS POR NÍVEL
+    # =========================
+    df_year = base_df.copy()
 
-    if selected_district is not None and "DistritoNorm" in dff_charts.columns:
-        dff_charts = dff_charts[dff_charts["DistritoNorm"] == selected_district]
+    if selected_year is not None:
+        df_year = df_year[pd.to_numeric(df_year["Ano"], errors="coerce") == selected_year]
 
-    total_vitimas = int(dff_charts["Vitimas_Totais"].sum()) if "Vitimas_Totais" in dff_charts.columns else 0
-    total_graves = int(dff_charts["Acidente_Grave"].sum()) if "Acidente_Grave" in dff_charts.columns else 0
+    df_prev_year = base_df.copy()
 
-    distrito_critico = "N/A"
-    distrito_count = 0
+    if selected_year is not None:
+        df_prev_year = df_prev_year[pd.to_numeric(df_prev_year["Ano"], errors="coerce") == selected_year - 1]
+
+    # =========================
+    # 3. DATASET PARA KPIs (COM MÊS + DISTRITO)
+    # =========================
+    kpi_df = df_year.copy()
+    kpi_prev_df = df_prev_year.copy()
+
+    if selected_month and mes_col:
+        kpi_df["Mes_Label"] = parse_mes_num(kpi_df[mes_col]).map(MONTH_LABELS)
+        kpi_prev_df["Mes_Label"] = parse_mes_num(kpi_prev_df[mes_col]).map(MONTH_LABELS)
+
+        kpi_df = kpi_df[kpi_df["Mes_Label"] == selected_month]
+        kpi_prev_df = kpi_prev_df[kpi_prev_df["Mes_Label"] == selected_month]
 
     if selected_district and distrito_col:
+        kpi_df = kpi_df[kpi_df["DistritoNorm"] == selected_district]
+        kpi_prev_df = kpi_prev_df[kpi_prev_df["DistritoNorm"] == selected_district]
+
+    # =========================
+    # 4. DATASET PARA LINHAS (SÓ ANO + DISTRITO 🚨 SEM MÊS)
+    # =========================
+    line_df = df_year.copy()
+
+    if selected_district and distrito_col:
+        line_df = line_df[line_df["DistritoNorm"] == selected_district]
+
+    # =========================
+    # 5. KPIs ATUAIS
+    # =========================
+    total_vitimas = int(kpi_df["Vitimas_Totais"].sum()) if "Vitimas_Totais" in kpi_df.columns else 0
+    total_graves = int(kpi_df["Acidente_Grave"].sum()) if "Acidente_Grave" in kpi_df.columns else 0
+
+    # =========================
+    # 6. KPIs DISTRITO
+    # =========================
+    distrito_critico = "N/A"
+    distrito_count = len(kpi_df)
+
+    if selected_district:
         distrito_critico = selected_district.title()
-        distrito_count = len(dff_charts)
-    elif distrito_col and distrito_col in dff.columns:
-        counts = dff[distrito_col].value_counts()
+    elif distrito_col and distrito_col in kpi_df.columns:
+        counts = kpi_df[distrito_col].value_counts()
         if not counts.empty:
             distrito_critico = counts.idxmax()
             distrito_count = int(counts.iloc[0])
 
+    # =========================
+    # 7. NATUREZA
+    # =========================
     natureza_top = "N/A"
     natureza_count = 0
-    if natureza_col and natureza_col in dff_charts.columns:
-        counts = dff_charts[natureza_col].astype(str).value_counts()
+
+    if natureza_col and natureza_col in kpi_df.columns:
+        counts = kpi_df[natureza_col].astype(str).value_counts()
         if not counts.empty:
             natureza_top = counts.idxmax()
             natureza_count = int(counts.iloc[0])
 
+    # =========================
+    # 8. KPIs ANO ANTERIOR
+    # =========================
     prev_vitimas = None
     prev_graves = None
     prev_distrito_count = None
     prev_natureza_count = None
 
-    if selected_year is not None and "Ano" in df.columns:
-        prev_year = selected_year - 1
-        anos_df = pd.to_numeric(df["Ano"], errors="coerce")
-        dff_prev = df[anos_df == prev_year]
+    if not kpi_prev_df.empty:
+        prev_vitimas = int(kpi_prev_df["Vitimas_Totais"].sum()) if "Vitimas_Totais" in kpi_prev_df.columns else None
+        prev_graves = int(kpi_prev_df["Acidente_Grave"].sum()) if "Acidente_Grave" in kpi_prev_df.columns else None
+        prev_distrito_count = len(kpi_prev_df)
 
-        if selected_district is not None and "Distrito" in dff_prev.columns:
-            dff_prev = dff_prev[dff_prev["Distrito"] == selected_district]
+        if natureza_col and natureza_col in kpi_prev_df.columns and natureza_top != "N/A":
+            prev_natureza_count = int(
+                (kpi_prev_df[natureza_col].astype(str) == natureza_top).sum()
+            )
 
-        if not dff_prev.empty:
-            prev_vitimas = int(dff_prev["Vitimas_Totais"].sum())
-            prev_graves = int(dff_prev["Acidente_Grave"].sum())
-            prev_distrito_count = len(dff_prev)
-
-            if natureza_col and natureza_col in dff_prev.columns and natureza_top != "N/A":
-                prev_natureza_count = int((dff_prev[natureza_col].astype(str) == natureza_top).sum())
-
+    # =========================
+    # KPIs UI
+    # =========================
     kpi1 = html.Div([
         html.Div("Vítimas Totais", style={"fontSize": "13px", "fontWeight": "600", "color": TEXT_MID}),
         html.Div(format_int_pt(total_vitimas), style={"fontSize": "26px", "fontWeight": "800", "color": TEXT_DARK}),
@@ -902,16 +1029,22 @@ def update_dashboard(selected_district):
         kpi_prev_label(prev_natureza_count)
     ], style=kpi_style())
 
+    # =========================
+    # MAPA
+    # =========================
     mapa_titulo = (
         f"Distribuição de Acidentes - {selected_district.title()}"
         if selected_district
         else "Distribuição de Acidentes"
     )
 
-    fig_mapa = build_map_figure(dff, selected_district)
+    fig_mapa = build_map_figure(kpi_df, selected_district)
 
-    if mes_col and mes_col in dff_charts.columns:
-        acidentes_mes = monthly_count(dff_charts, mes_col)
+    # =========================
+    # LINHA ACIDENTES (SEM MÊS 🚨)
+    # =========================
+    if mes_col and mes_col in line_df.columns:
+        acidentes_mes = monthly_count(line_df, mes_col)
 
         fig_line_ac = px.line(
             acidentes_mes,
@@ -920,28 +1053,17 @@ def update_dashboard(selected_district):
             markers=True,
             title="Evolução Mensal (Acidentes)"
         )
-
-        fig_line_ac.update_traces(
-            line=dict(width=2.5, color=ACCIDENT_LINE),
-            marker=dict(size=6, color=ACCIDENT_LINE)
-        )
-
-        fig_line_ac.update_layout(
-            xaxis_title="",
-            yaxis_title="Nº de Acidentes",
-            xaxis=dict(categoryorder="array", categoryarray=MONTH_ORDER)
-        )
-
-        fig_line_ac.update_xaxes(tickangle=40)
-        apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
     else:
         fig_line_ac = go.Figure()
-        fig_line_ac.update_layout(title="Evolução Mensal (Acidentes)")
-        apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
 
-    if mes_col and mes_col in dff_charts.columns and "Vitimas_Totais" in dff_charts.columns:
+    apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
+
+    # =========================
+    # LINHA VÍTIMAS (SEM MÊS 🚨)
+    # =========================
+    if mes_col and mes_col in line_df.columns and "Vitimas_Totais" in line_df.columns:
         vitimas_mes = monthly_sum(
-            dff_charts,
+            line_df,
             mes_col,
             "Vitimas_Totais",
             "Vitimas_Totais"
@@ -954,43 +1076,32 @@ def update_dashboard(selected_district):
             markers=True,
             title="Evolução Mensal (Vítimas)"
         )
-
-        fig_line_vit.update_traces(
-            line=dict(width=2.5, color=ACCIDENT_LINE),
-            marker=dict(size=6, color=ACCIDENT_LINE)
-        )
-
-        fig_line_vit.update_layout(
-            xaxis_title="",
-            yaxis_title="Nº de Vítimas",
-            xaxis=dict(categoryorder="array", categoryarray=MONTH_ORDER)
-        )
-
-        fig_line_vit.update_xaxes(tickangle=40)
-        apply_common_figure_style(fig_line_vit, height=LINE_CHART_HEIGHT)
     else:
         fig_line_vit = go.Figure()
-        fig_line_vit.update_layout(title="Evolução Mensal (Vítimas)")
-        apply_common_figure_style(fig_line_vit, height=LINE_CHART_HEIGHT)
 
+    apply_common_figure_style(fig_line_vit, height=LINE_CHART_HEIGHT)
+
+    # =========================
+    # VEÍCULOS
+    # =========================
     veiculos = []
     valores = []
 
-    if ligeiros_col and ligeiros_col in dff_charts.columns:
+    if ligeiros_col and ligeiros_col in kpi_df.columns:
         veiculos.append("Ligeiros")
-        valores.append(dff_charts[ligeiros_col].fillna(0).sum())
+        valores.append(kpi_df[ligeiros_col].fillna(0).sum())
 
-    if pesados_col and pesados_col in dff_charts.columns:
+    if pesados_col and pesados_col in kpi_df.columns:
         veiculos.append("Pesados")
-        valores.append(dff_charts[pesados_col].fillna(0).sum())
+        valores.append(kpi_df[pesados_col].fillna(0).sum())
 
-    if motos_col and motos_col in dff_charts.columns:
+    if motos_col and motos_col in kpi_df.columns:
         veiculos.append("Motociclos")
-        valores.append(dff_charts[motos_col].fillna(0).sum())
+        valores.append(kpi_df[motos_col].fillna(0).sum())
 
-    if outros_col and outros_col in dff_charts.columns:
+    if outros_col and outros_col in kpi_df.columns:
         veiculos.append("Outros")
-        valores.append(dff_charts[outros_col].fillna(0).sum())
+        valores.append(kpi_df[outros_col].fillna(0).sum())
 
     if veiculos:
         df_veiculos = pd.DataFrame({"Tipo": veiculos, "Total": valores})
@@ -1002,26 +1113,15 @@ def update_dashboard(selected_district):
             title="Tipos de Veículo Envolvidos",
             text=df_veiculos["Total"].apply(format_int_pt)
         )
-
-        fig_bar.update_traces(
-            textposition="outside",
-            marker_color=BAR_COLORS[:len(df_veiculos)],
-            marker_line_width=0
-        )
-
-        fig_bar.update_layout(
-            xaxis_title="",
-            yaxis_title="Total"
-        )
-
         apply_common_figure_style(fig_bar, height=260)
     else:
         fig_bar = go.Figure()
-        fig_bar.update_layout(title="Tipos de Veículo Envolvidos")
-        apply_common_figure_style(fig_bar, height=260)
 
-    if meteo_col and meteo_col in dff_charts.columns:
-        meteo_df = dff_charts[meteo_col].astype(str).value_counts().reset_index()
+    # =========================
+    # METEOROLOGIA (FIX DO BUG dff → kpi_df)
+    # =========================
+    if meteo_col and meteo_col in kpi_df.columns:
+        meteo_df = kpi_df[meteo_col].astype(str).value_counts().reset_index()
         meteo_df.columns = ["Meteorologia", "Total"]
 
         fig_pie = px.pie(
@@ -1032,36 +1132,22 @@ def update_dashboard(selected_district):
             hole=0.56,
             color_discrete_sequence=PIE_COLORS
         )
-
-        fig_pie.update_traces(textinfo="none", sort=False)
-
-        fig_pie.update_layout(
-            height=260,
-            paper_bgcolor="white",
-            plot_bgcolor="white",
-            margin=dict(l=18, r=18, t=48, b=18),
-            title=dict(
-                x=0.02,
-                xanchor="left",
-                font=dict(size=18, color=PRIMARY, family="Arial, sans-serif")
-            ),
-            font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK),
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                x=0.72,
-                y=0.5,
-                xanchor="left",
-                yanchor="middle",
-                bgcolor="rgba(255,255,255,0)"
-            )
-        )
     else:
         fig_pie = go.Figure()
-        fig_pie.update_layout(title="Meteorologia")
-        apply_common_figure_style(fig_pie, height=260)
+
+    apply_common_figure_style(fig_pie, height=260)
+
+    # =========================
+    # TÍTULO
+    # =========================
+    titulo = (
+        f"Acidentes Rodoviários em Portugal - {selected_month}"
+        if selected_month
+        else "Acidentes Rodoviários em Portugal"
+    )
 
     return (
+        titulo,
         kpi1,
         kpi2,
         kpi3,
@@ -1073,8 +1159,6 @@ def update_dashboard(selected_district):
         fig_bar,
         fig_pie
     )
-
-
 # =========================
 # 11. RUN
 # =========================
