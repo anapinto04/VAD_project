@@ -462,7 +462,7 @@ def build_map_figure(dff, selected_district):
                 color="Acidentes",
                 hover_name=distrito_col,
                 hover_data={"DistritoNorm": False, "Acidentes": True},
-                color_continuous_scale="Blues",
+                color_continuous_scale="Reds",
                 center={"lat": 39.7, "lon": -8.1},
                 zoom=5.5,
                 opacity=0.78
@@ -587,8 +587,8 @@ app.layout = html.Div([
                 }
             ),
                 html.A("Dashboard Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
-                html.A("Evolução Temporal", href="http://127.0.0.1:8052", style=menu_item_style()),
-                html.A("Comparação entre anos", href="http://127.0.0.1:8053", style=menu_item_style(active=True)),
+                html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style()),
+                html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style(active=True)),
 
             html.Div(
                 "Clica novamente em ☰ para fechar o menu.",
@@ -856,21 +856,28 @@ def update_selected_month(click_acidentes, click_vitimas, reset_clicks):
 
     trigger = ctx.triggered[0]["prop_id"].split(".")[0]
 
-    # reset
     if trigger == "btn-reset-month":
         return None
 
-    data = None
+    data = click_acidentes if trigger == "line-acidentes" else click_vitimas
 
-    if trigger == "line-acidentes":
-        data = click_acidentes
-    elif trigger == "line-vitimas":
-        data = click_vitimas
+    if data and "points" in data:
+        x = data["points"][0]["x"]
 
-    if data and isinstance(data, dict) and "points" in data:
-        return data["points"][0]["x"]
+        # se já for número
+        try:
+            return int(x)
+        except:
+            pass
+
+        # se for texto ("Janeiro", etc.)
+        x_norm = normalize_text(x)
+        inv_map = {normalize_text(v): k for k, v in MONTH_LABELS.items()}
+
+        return inv_map.get(x_norm)
 
     return None
+  
 # =========================
 # 10. CALLBACK PRINCIPAL
 # =========================
@@ -922,11 +929,11 @@ def update_dashboard(selected_district, selected_month):
     kpi_prev_df = df_prev_year.copy()
 
     if selected_month and mes_col:
-        kpi_df["Mes_Label"] = parse_mes_num(kpi_df[mes_col]).map(MONTH_LABELS)
-        kpi_prev_df["Mes_Label"] = parse_mes_num(kpi_prev_df[mes_col]).map(MONTH_LABELS)
+        kpi_df["Mes_Num"] = parse_mes_num(kpi_df[mes_col])
+        kpi_prev_df["Mes_Num"] = parse_mes_num(kpi_prev_df[mes_col])
 
-        kpi_df = kpi_df[kpi_df["Mes_Label"] == selected_month]
-        kpi_prev_df = kpi_prev_df[kpi_prev_df["Mes_Label"] == selected_month]
+        kpi_df = kpi_df[kpi_df["Mes_Num"] == selected_month]
+        kpi_prev_df = kpi_prev_df[kpi_prev_df["Mes_Num"] == selected_month]
 
     if selected_district and distrito_col:
         kpi_df = kpi_df[kpi_df["DistritoNorm"] == selected_district]
@@ -1053,10 +1060,30 @@ def update_dashboard(selected_district, selected_month):
             markers=True,
             title="Evolução Mensal (Acidentes)"
         )
+
+        # =========================
+        # LINHA VERTICAL (MÊS SELECIONADO)
+        # =========================
+        selected_month_label = None
+        if selected_month:
+            try:
+                selected_month_label = MONTH_LABELS.get(int(selected_month))
+            except:
+                selected_month_label = selected_month
+
+        if selected_month_label:
+            fig_line_ac.add_vline(
+                x=selected_month_label,
+                line_width=2,
+                line_dash="dash",
+                line_color="rgba(90, 103, 242, 0.8)"
+            )
+
     else:
         fig_line_ac = go.Figure()
 
     apply_common_figure_style(fig_line_ac, height=LINE_CHART_HEIGHT)
+
 
     # =========================
     # LINHA VÍTIMAS (SEM MÊS 🚨)
@@ -1076,6 +1103,24 @@ def update_dashboard(selected_district, selected_month):
             markers=True,
             title="Evolução Mensal (Vítimas)"
         )
+
+        # =========================
+        # LINHA VERTICAL (MESMO MÊS)
+        # =========================
+        if selected_month:
+            try:
+                selected_month_label = MONTH_LABELS.get(int(selected_month))
+            except:
+                selected_month_label = selected_month
+
+            if selected_month_label:
+                fig_line_vit.add_vline(
+                    x=selected_month_label,
+                    line_width=2,
+                    line_dash="dash",
+                    line_color="rgba(90, 103, 242, 0.8)"
+                )
+
     else:
         fig_line_vit = go.Figure()
 
@@ -1110,8 +1155,10 @@ def update_dashboard(selected_district, selected_month):
             df_veiculos,
             x="Tipo",
             y="Total",
+            color="Tipo",
             title="Tipos de Veículo Envolvidos",
-            text=df_veiculos["Total"].apply(format_int_pt)
+            text=df_veiculos["Total"].apply(format_int_pt),
+            color_discrete_sequence=BAR_COLORS
         )
         apply_common_figure_style(fig_bar, height=260)
     else:
@@ -1132,16 +1179,32 @@ def update_dashboard(selected_district, selected_month):
             hole=0.56,
             color_discrete_sequence=PIE_COLORS
         )
+
+        apply_common_figure_style(fig_pie, height=260)
+
+        fig_pie.update_layout(
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                yanchor="middle",
+                y=0.5,
+                xanchor="left",
+                x=1.02,
+                bgcolor="rgba(255,255,255,0)",
+                font=dict(size=12)
+            )
+        )
     else:
         fig_pie = go.Figure()
 
-    apply_common_figure_style(fig_pie, height=260)
+  
+
 
     # =========================
     # TÍTULO
     # =========================
     titulo = (
-        f"Acidentes Rodoviários em Portugal - {selected_month}"
+        f"Acidentes Rodoviários em Portugal - {MONTH_LABELS.get(selected_month)}"
         if selected_month
         else "Acidentes Rodoviários em Portugal"
     )
