@@ -148,7 +148,7 @@ natureza_col = find_column(df_principal, [
 ])
 
 tipo_via_col = find_column(df_principal, [
-    "Tipos de Via",
+    "Tipos Vias",
 ])
 
 if not df_principal.empty:
@@ -442,14 +442,7 @@ app.layout = html.Div(
                                             "fontWeight": "800"
                                         }
                                     ),
-                                    html.P(
-                                        "Comparação entre anos por tipo de veículo, meteorologia, natureza ou tipo de via.",
-                                        style={
-                                            "margin": "6px 0 0 0",
-                                            "color": TEXT_MID,
-                                            "fontSize": "14px"
-                                        }
-                                    )
+
                                 ]),
 
                                 html.Div(
@@ -470,7 +463,7 @@ app.layout = html.Div(
                                                     {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
                                                     {"label": "Meteorologia", "value": "Meteorologia"},
                                                     {"label": "Natureza do acidente", "value": "Natureza"},
-                                                    {"label": "Tipo de Via", "value": "Tipo_Via"},
+                                                    {"label": "Tipos de Vias", "value": "Tipo_Via"},
                                                 ],
                                                 value="Tipo_Veiculo",
                                                 clearable=False,
@@ -479,24 +472,14 @@ app.layout = html.Div(
                                         ]),
 
                                         html.Div([
-                                            html.Label("Ano Base", style=dropdown_label_style()),
+                                            html.Label("Selecionar anos", style=dropdown_label_style()),
                                             dcc.Dropdown(
-                                                id="ano-1",
+                                                id="anos-selecionados",
                                                 options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                                                value=ano_base_default,
+                                                value=[ano_comp_default, ano_base_default],  # valores iniciais
+                                                multi=True,
                                                 clearable=False,
-                                                style=dropdown_style("110px")
-                                            )
-                                        ]),
-
-                                        html.Div([
-                                            html.Label("Comparar", style=dropdown_label_style()),
-                                            dcc.Dropdown(
-                                                id="ano-2",
-                                                options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                                                value=ano_comp_default,
-                                                clearable=False,
-                                                style=dropdown_style("110px")
+                                                style=dropdown_style("220px")
                                             )
                                         ]),
 
@@ -518,65 +501,33 @@ app.layout = html.Div(
                             ]
                         ),
 
-                        # GRÁFICOS
                         html.Div(
-                            style={
-                                "display": "grid",
-                                "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
-                                "gap": "16px"
-                            },
+                            style=card_style("20px"),
                             children=[
 
-                                html.Div(
-                                    style=card_style("20px"),
-                                    children=[
-                                        html.Div(id="tit-1", style={
-                                            "textAlign": "center",
-                                            "margin": "0 0 14px 0",
-                                            "color": TEXT_DARK,
-                                            "fontSize": "18px",
-                                            "fontWeight": "800"
-                                        }),
-                                        html.Div(id="subtit-1", style={
-                                            "textAlign": "center",
-                                            "margin": "-8px 0 10px 0",
-                                            "color": TEXT_MID,
-                                            "fontSize": "13px"
-                                        }),
-                                        dcc.Loading(
-                                            type='circle',
-                                            delay_show=200,
-                                            delay_hide=200,
-                                            children=dcc.Graph(id="graph-1", config={"displaylogo": False})
-                                        )
+                                html.Div(id="titulo-comparacao", style={
+                                    "textAlign": "center",
+                                    "margin": "0 0 14px 0",
+                                    "color": TEXT_DARK,
+                                    "fontSize": "20px",
+                                    "fontWeight": "800"
+                                }),
 
-                                    ]
-                                ),
+                                html.Div(id="subtitulo-comparacao", style={
+                                    "textAlign": "center",
+                                    "margin": "-8px 0 10px 0",
+                                    "color": TEXT_MID,
+                                    "fontSize": "13px"
+                                }),
 
-                                html.Div(
-                                    style=card_style("20px"),
-                                    children=[
-                                        html.Div(id="tit-2", style={
-                                            "textAlign": "center",
-                                            "margin": "0 0 14px 0",
-                                            "color": TEXT_DARK,
-                                            "fontSize": "18px",
-                                            "fontWeight": "800"
-                                        }),
-                                        html.Div(id="subtit-2", style={
-                                            "textAlign": "center",
-                                            "margin": "-8px 0 10px 0",
-                                            "color": TEXT_MID,
-                                            "fontSize": "13px"
-                                        }),
-                                        dcc.Loading(
-                                            type = 'circle',
-                                            delay_show=200,
-                                            delay_hide=200,
-                                            children = dcc.Graph(id="graph-2", config={"displaylogo": False})
-                                        )
-
-                                    ]
+                                dcc.Loading(
+                                    type='circle',
+                                    delay_show=200,
+                                    delay_hide=200,
+                                    children=dcc.Graph(
+                                        id="graph-comparacao",
+                                        config={"displaylogo": False}
+                                    )
                                 )
                             ]
                         )
@@ -603,30 +554,29 @@ def toggle_sidebar(n_clicks):
 # 9. CALLBACK PRINCIPAL
 # ==============================================================================
 @app.callback(
-    Output("graph-1", "figure"),
-    Output("tit-1", "children"),
-    Output("subtit-1", "children"),
-    Output("graph-2", "figure"),
-    Output("tit-2", "children"),
-    Output("subtit-2", "children"),
-    Input("ano-1", "value"),
-    Input("ano-2", "value"),
+    Output("graph-comparacao", "figure"),
+    Output("titulo-comparacao", "children"),
+    Output("subtitulo-comparacao", "children"),
+
+    Input("anos-selecionados", "value"),
     Input("mes-filtro", "value"),
     Input("atributo-dinamico", "value")
 )
-def update_comparison(ano1, ano2, mes, atributo):
+def update_comparison(anos_selecionados, mes, atributo):
+
     atributo_labels = {
         "Tipo_Veiculo": "Tipo de Veículo",
         "Meteorologia": "Meteorologia",
         "Natureza": "Natureza",
-        "Tipo_Via": "Tipo de Via"
+        "Tipo_Via": "Tipos Vias"
     }
 
     def make_empty_fig(message):
         fig = px.scatter()
+
         fig.update_layout(
             template="plotly_white",
-            height=420,
+            height=500,
             annotations=[
                 dict(
                     text=message,
@@ -642,135 +592,227 @@ def update_comparison(ano1, ano2, mes, atributo):
             yaxis=dict(visible=False),
             margin=dict(t=20, b=20, l=20, r=20)
         )
+
         return fig
 
-    def get_fig(ano):
-        if df_principal.empty or ano is None:
-            return make_empty_fig("Sem dados disponíveis")
+    # ==========================================================================
+    # VALIDAR DADOS
+    # ==========================================================================
+    if df_principal.empty:
+        return make_empty_fig("Sem dados disponíveis"), "", ""
 
+    # ==========================================================================
+    # FILTRAR ANOS
+    # ==========================================================================
+    if not anos_selecionados or len(anos_selecionados) < 1:
+        return make_empty_fig("Selecione pelo menos um ano"), "", ""
+
+    dataframes = []
+
+    for ano in anos_selecionados:
         dff = df_principal[df_principal["Ano"] == ano].copy()
 
         if mes != "Geral":
             dff = dff[dff["Mês"] == mes]
 
-        data = get_comparison_data(dff, atributo)
+        data_temp = get_comparison_data(dff, atributo)
 
-        if data.empty:
-            return make_empty_fig("Sem dados para este filtro")
+        if not data_temp.empty:
+            data_temp["Ano"] = str(ano)
+            dataframes.append(data_temp)
 
-        data = data.sort_values("Acidentes", ascending=False)
+    if not dataframes:
+        return make_empty_fig("Sem dados para este filtro"), "", ""
 
-        year_color = color_for_year(int(ano))
+    data = pd.concat(dataframes, ignore_index=True)
 
-        if atributo == "Meteorologia":
-            fig = px.pie(
-                data,
-                values="Acidentes",
-                names="Categoria",
-                hole=0.55,
-                color_discrete_sequence=FALLBACK_COLORS
+
+
+# ==========================================================================
+# ORDENAR CATEGORIAS ALFABETICAMENTE
+# ==========================================================================
+    total_order = sorted(data["Categoria"].unique())
+
+    data["Categoria"] = pd.Categorical(
+        data["Categoria"],
+        categories=total_order,
+        ordered=True
+    )
+
+    # ==========================================================================
+    # METEOROLOGIA → PIE CHART
+    # ==========================================================================
+    if atributo == "Meteorologia":
+        fig = px.bar(
+            data,
+            x="Categoria",
+            y="Acidentes",
+            color="Ano",
+            barmode="group",
+            text="Acidentes",
+            color_discrete_map={
+                str(ano): color_for_year(ano)
+                for ano in anos_selecionados
+            }
+        )
+
+        fig.update_traces(
+            textposition="outside"
+        )
+
+        fig.update_layout(
+            template="plotly_white",
+            height=520,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            xaxis_title="",
+            yaxis_title="Acidentes",
+            legend_title="Ano",
+            margin=dict(t=20, b=40, l=20, r=20),
+            font=dict(
+                family="Arial, sans-serif",
+                size=12,
+                color=TEXT_DARK
             )
+        )
 
-            fig.update_traces(
-                textinfo="percent+label",
-                textfont_size=12,
-                marker=dict(line=dict(color="white", width=2))
+        fig.update_xaxes(
+            tickangle=20,
+            showgrid=False
+        )
+
+        fig.update_yaxes(
+            showgrid=True,
+            gridcolor="#EAEFF5",
+            zeroline=False
+        )
+
+    # ==========================================================================
+    # NATUREZA E TIPO DE VIA → BARRAS HORIZONTAIS
+    # ==========================================================================
+    elif atributo in ["Natureza", "Tipo_Via"]:
+
+        fig = px.bar(
+            data,
+            y="Categoria",
+            x="Acidentes",
+            color="Ano",
+            orientation="h",
+            barmode="group",
+            text="Acidentes",
+            color_discrete_map={
+                str(ano): color_for_year(ano)
+                for ano in anos_selecionados
+            }
+        )
+
+        fig.update_traces(
+            textposition="outside"
+        )
+
+        fig.update_layout(
+            template="plotly_white",
+            height=600,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            xaxis_title="Acidentes",
+            yaxis_title="",
+            legend_title="Ano",
+            margin=dict(t=20, b=20, l=20, r=40),
+            font=dict(
+                family="Arial, sans-serif",
+                size=12,
+                color=TEXT_DARK
             )
+        )
 
-            fig.update_layout(
-                template="plotly_white",
-                height=420,
-                paper_bgcolor="white",
-                plot_bgcolor="white",
-                margin=dict(t=20, b=20, l=20, r=20),
-                showlegend=True,
-                font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK)
-            )
+        fig.update_xaxes(
+            showgrid=True,
+            gridcolor="#EAEFF5",
+            zeroline=False
+        )
 
-            return fig
+        fig.update_yaxes(
+            showgrid=False
+        )
 
-        if atributo in ["Natureza", "Tipo_Via"]:
-            data = data.sort_values("Acidentes", ascending=True)
-
-            fig = px.bar(
-                data,
-                y="Categoria",
-                x="Acidentes",
-                orientation="h",
-                text="Acidentes",
-                color_discrete_sequence=[year_color]
-            )
-
-            fig.update_traces(
-                texttemplate="%{text}",
-                textposition="outside",
-                marker_line_width=0
-            )
-
-            fig.update_layout(
-                template="plotly_white",
-                height=420,
-                paper_bgcolor="white",
-                plot_bgcolor="white",
-                xaxis_title="Acidentes",
-                yaxis_title="",
-                showlegend=False,
-                margin=dict(t=20, b=20, l=20, r=45),
-                font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK)
-            )
-
-            fig.update_xaxes(showgrid=True, gridcolor="#EAEFF5", zeroline=False)
-            fig.update_yaxes(showgrid=False)
-
-            return fig
+    # ==========================================================================
+    # TIPO VEÍCULO → BARRAS VERTICAIS
+    # ==========================================================================
+    else:
 
         fig = px.bar(
             data,
             x="Categoria",
             y="Acidentes",
+            color="Ano",
+            barmode="group",
             text="Acidentes",
-            color_discrete_sequence=[year_color]
+            color_discrete_map={
+                str(ano): color_for_year(ano)
+                for ano in anos_selecionados
+            }
         )
 
         fig.update_traces(
-            texttemplate="%{text}",
-            textposition="outside",
-            marker_line_width=0
+            textposition="outside"
         )
 
         fig.update_layout(
             template="plotly_white",
-            height=420,
+            height=520,
             paper_bgcolor="white",
             plot_bgcolor="white",
             xaxis_title="",
             yaxis_title="Acidentes",
-            showlegend=False,
-            margin=dict(t=20, b=20, l=20, r=35),
-            font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK)
+            legend_title="Ano",
+            margin=dict(t=20, b=40, l=20, r=20),
+            font=dict(
+                family="Arial, sans-serif",
+                size=12,
+                color=TEXT_DARK
+            )
         )
 
-        fig.update_xaxes(showgrid=False, tickangle=0)
-        fig.update_yaxes(showgrid=True, gridcolor="#EAEFF5", zeroline=False)
+        fig.update_xaxes(
+            showgrid=False,
+            tickangle=0
+        )
 
-        return fig
+        fig.update_yaxes(
+            showgrid=True,
+            gridcolor="#EAEFF5",
+            zeroline=False
+        )
 
-    fig1 = get_fig(ano1)
-    fig2 = get_fig(ano2)
-
-    mes_label = "Ano Inteiro" if mes == "Geral" else next(
-        (MONTH_LABELS_FULL[i] for i in range(1, 13) if MONTH_LABELS_ABR[i] == mes),
-        mes
+    # ==========================================================================
+    # LABEL DO MÊS
+    # ==========================================================================
+    mes_label = (
+        "Ano Inteiro"
+        if mes == "Geral"
+        else next(
+            (
+                MONTH_LABELS_FULL[i]
+                for i in range(1, 13)
+                if MONTH_LABELS_ABR[i] == mes
+            ),
+            mes
+        )
     )
 
-    tit1 = f"{ano1} - {atributo_labels.get(atributo, atributo)}"
-    tit2 = f"{ano2} - {atributo_labels.get(atributo, atributo)}"
+    # ==========================================================================
+    # TÍTULOS
+    # ==========================================================================
+    anos_texto = ", ".join(map(str, anos_selecionados))
 
-    subtit1 = f"Filtro temporal: {mes_label}"
-    subtit2 = f"Filtro temporal: {mes_label}"
+    titulo = (
+        f"Comparação entre {anos_texto} - "
+        f"{atributo_labels.get(atributo)}"
+    )
+    subtitulo = f"Filtro temporal: {mes_label}"
 
-    return fig1, tit1, subtit1, fig2, tit2, subtit2
-
+    return fig, titulo, subtitulo
 
 # ==============================================================================
 # 10. RUN
