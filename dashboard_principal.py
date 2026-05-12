@@ -255,8 +255,14 @@ ACCIDENT_LINE = "#5A67F2"
 BAR_COLORS = ["#5A67F2", "#F25C54", "#F4A261", "#52A35E"]
 treemap_COLORS = ["#5A67F2", "#F25C22", "#F9A11B", "#43A047", "#AB47BC", "#90A4AE"]
 
-MAP_HEIGHT = 478
-LINE_CHART_HEIGHT = MAP_HEIGHT // 2
+# =========================
+# 4. ESTILOS (Ajustado para alinhamento)
+# =========================
+LINE_CHART_HEIGHT = 280  # Altura de cada gráfico de linha
+GAP = 16                 # Espaçamento entre os cards (gap)
+# Calculamos a altura do mapa para somar:
+# (Gráfico 1 + Gráfico 2) + Gap + Ajuste para o botão "Limpar mês"
+MAP_HEIGHT = (2 * LINE_CHART_HEIGHT) + GAP + 32
 
 
 def card_style(padding="16px"):
@@ -661,7 +667,7 @@ app.layout = html.Div([
         ], style={
             "display": "grid",
             "gridTemplateColumns": "repeat(4, minmax(0, 1fr))",
-            "gap": "16px",
+            "gap":f"{GAP}px",
             "marginBottom": "16px"
         }),
 
@@ -785,12 +791,13 @@ app.layout = html.Div([
                 "width": "50%",
                 "display": "flex",
                 "flexDirection": "column",
-                "gap": "16px"
+                "justifyContent": "space-between", # Isto ajuda a distribuir o espaço uniformemente
+                "gap": f"{GAP}px"
             })
 
         ], style={
             "display": "flex",
-            "gap": "16px",
+            "gap": f"{GAP}px",
             "alignItems": "stretch",
             "marginBottom": "14px",
             "width": "100%"
@@ -809,7 +816,7 @@ app.layout = html.Div([
                     delay_hide=200,
                     children=dcc.Graph(
                         id="bar-veiculos",
-                        style={"height": "260px"},
+                        style={"height": f"{LINE_CHART_HEIGHT}px"},
                         config={"displaylogo": False}
                     )
                 )
@@ -826,7 +833,7 @@ app.layout = html.Div([
                     delay_hide=200,
                     children=dcc.Graph(
                         id="treemap-meteorologia",
-                        style={"height": "260px"},
+                        style={"height": f"{LINE_CHART_HEIGHT}px"},
                         config={"displaylogo": False}
                     )
                 )
@@ -838,7 +845,7 @@ app.layout = html.Div([
 
         ], style={
             "display": "flex",
-            "gap": "16px",
+            "gap": f"{GAP}px",
             "alignItems": "stretch"
         })
 
