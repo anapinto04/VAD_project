@@ -193,6 +193,7 @@ lon_col = find_column(df, ["Longitude GPS", "Longitude"])
 mortais_col = find_column(df, ["Vítimas mortais 30 dias", "Vitimas mortais 30 dias"])
 graves_col = find_column(df, ["Feridos graves 30 dias"])
 leves_col = find_column(df, ["Feridos leves 30 dias"])
+tipo_via_col = find_column(df, ["Tipos Vias"])
 
 ligeiros_col = find_column(df, [
     "# Veículos Ligeiros"
@@ -252,7 +253,7 @@ BORDER = "#E1E8F0"
 
 ACCIDENT_LINE = "#5A67F2"
 BAR_COLORS = ["#5A67F2", "#F25C54", "#F4A261", "#52A35E"]
-PIE_COLORS = ["#5A67F2", "#F25C22", "#F9A11B", "#43A047", "#AB47BC", "#90A4AE"]
+treemap_COLORS = ["#5A67F2", "#F25C22", "#F9A11B", "#43A047", "#AB47BC", "#90A4AE"]
 
 MAP_HEIGHT = 478
 LINE_CHART_HEIGHT = MAP_HEIGHT // 2
@@ -476,8 +477,9 @@ def build_map_figure(dff, selected_district):
                 coloraxis_colorbar=dict(
                     title="Acidentes",
                     thickness=14,
-                    len=1,
-                    x=0.97
+                    len=0.85,
+                    x=0.20,
+                    y=0.5
                 )
             )
 
@@ -523,11 +525,11 @@ def build_map_figure(dff, selected_district):
             "Grave": "#d62828",
             "Ligeiro": "#f77f00"
         },
-        zoom=7.0,
+        zoom=9.0,
         center=coord
     )
 
-    fig.update_traces(marker=dict(size=8, opacity=0.82))
+    fig.update_traces(marker=dict(size=9, opacity=0.82))
 
     fig.update_layout(
         mapbox_style="carto-positron",
@@ -555,6 +557,7 @@ app = Dash(__name__)
 app.title = "Acidentes Rodoviários em Portugal"
 
 app.layout = html.Div([
+
     dcc.Store(id="selected-district", data=None),
     dcc.Store(id="selected-month", data=None),
 
@@ -566,9 +569,13 @@ app.layout = html.Div([
         style=hamburger_style()
     ),
 
+    # =========================
+    # SIDEBAR
+    # =========================
     html.Div(
         id="sidebar-menu",
         children=[
+
             html.H2(
                 "Menu",
                 style={
@@ -578,6 +585,7 @@ app.layout = html.Div([
                     "fontWeight": "800"
                 }
             ),
+
             html.P(
                 "Dashboards",
                 style={
@@ -586,9 +594,24 @@ app.layout = html.Div([
                     "fontSize": "13px"
                 }
             ),
-                html.A("Dashboard Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
-                html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style()),
-                html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style(active=True)),
+
+            html.A(
+                "Dashboard Principal",
+                href="http://127.0.0.1:8050",
+                style=menu_item_style()
+            ),
+
+            html.A(
+                "Evolução Temporal",
+                href="http://127.0.0.1:8051",
+                style=menu_item_style()
+            ),
+
+            html.A(
+                "Comparação entre anos",
+                href="http://127.0.0.1:8052",
+                style=menu_item_style(active=True)
+            ),
 
             html.Div(
                 "Clica novamente em ☰ para fechar o menu.",
@@ -602,11 +625,19 @@ app.layout = html.Div([
                     "lineHeight": "1.4"
                 }
             )
+
         ],
         style=sidebar_style(False)
     ),
 
+    # =========================
+    # CONTEÚDO PRINCIPAL
+    # =========================
     html.Div([
+
+        # =========================
+        # TÍTULO
+        # =========================
         html.H1(
             id="main-title",
             style={
@@ -619,6 +650,9 @@ app.layout = html.Div([
             }
         ),
 
+        # =========================
+        # KPI CARDS
+        # =========================
         html.Div([
             html.Div(id="kpi-vitimas"),
             html.Div(id="kpi-graves"),
@@ -631,46 +665,74 @@ app.layout = html.Div([
             "marginBottom": "16px"
         }),
 
+        # =========================
+        # MAPA + LINHAS
+        # =========================
         html.Div([
+
+            # =========================
+            # COLUNA ESQUERDA - MAPA
+            # =========================
             html.Div([
+
                 html.Div([
-                    html.H3(id="mapa-titulo", style=section_title_style()),
-                    html.Button(
-                        "Limpar seleção",
-                        id="btn-reset",
-                        n_clicks=0,
-                        style={
-                            "padding": "7px 12px",
-                            "border": f"1px solid {BORDER}",
-                            "borderRadius": "10px",
-                            "background": "#F7FAFE",
-                            "color": PRIMARY,
-                            "cursor": "pointer",
-                            "fontSize": "13px",
-                            "fontWeight": "600"
-                        }
+
+                    html.Div([
+                        html.H3(
+                            id="mapa-titulo",
+                            style=section_title_style()
+                        ),
+
+                        html.Button(
+                            "Limpar seleção",
+                            id="btn-reset",
+                            n_clicks=0,
+                            style={
+                                "padding": "7px 12px",
+                                "border": f"1px solid {BORDER}",
+                                "borderRadius": "10px",
+                                "background": "#F7FAFE",
+                                "color": PRIMARY,
+                                "cursor": "pointer",
+                                "fontSize": "13px",
+                                "fontWeight": "600"
+                            }
+                        )
+
+                    ], style={
+                        "display": "flex",
+                        "justifyContent": "space-between",
+                        "alignItems": "center",
+                        "marginBottom": "10px"
+                    }),
+
+                    dcc.Loading(
+                        type="circle",
+                        delay_show=200,
+                        delay_hide=200,
+                        children=dcc.Graph(
+                            id="mapa-distritos",
+                            style={"height": f"{MAP_HEIGHT}px"},
+                            config={"displaylogo": False}
+                        )
                     )
-                ], style={
-                    "display": "flex",
-                    "justifyContent": "space-between",
-                    "alignItems": "center",
-                    "marginBottom": "10px"
-                }),
-                dcc.Loading(
-                    type="circle",
-                    delay_show=200,
-                    delay_hide=200,
-                    children=dcc.Graph(
-                    id="mapa-distritos",
-                    style={"height": f"{MAP_HEIGHT}px"},
-                    config={"displaylogo": False}
-                )
-                )
 
-            ], style={**card_style("14px"), "width": "42%"}),
+                ], style=card_style("10px 12px"))
 
+            ], style={
+                "width": "50%"
+            }),
+
+            # =========================
+            # COLUNA DIREITA - LINHAS
+            # =========================
             html.Div([
+
+                # =========================
+                # GRÁFICO ACIDENTES
+                # =========================
                 html.Div([
+
                     html.Button(
                         "Limpar mês",
                         id="btn-reset-month",
@@ -687,85 +749,110 @@ app.layout = html.Div([
                             "marginBottom": "10px"
                         }
                     ),
+
                     dcc.Loading(
-                        type="circle",  
+                        type="circle",
                         delay_show=200,
                         delay_hide=200,
-                        children= dcc.Graph(
-                        id="line-acidentes",
-                        style={"height": f"{LINE_CHART_HEIGHT}px"},
-                        config={"displaylogo": False}
-                    )
-                    )
-
-                ], style={**card_style("10px 12px"), "marginBottom": "12px"}),
-
-                html.Div([
-                    dcc.Loading(                        
-                        type="circle",  
-                        delay_show=200,
-                        delay_hide=200,
-                        children= dcc.Graph(
-                        id="line-vitimas",
-                        style={"height": f"{LINE_CHART_HEIGHT}px"},
-                        config={"displaylogo": False}
-                    )
+                        children=dcc.Graph(
+                            id="line-acidentes",
+                            style={"height": f"{LINE_CHART_HEIGHT}px"},
+                            config={"displaylogo": False}
                         )
+                    )
+
+                ], style=card_style("10px 12px")),
+
+                # =========================
+                # GRÁFICO VÍTIMAS
+                # =========================
+                html.Div([
+
+                    dcc.Loading(
+                        type="circle",
+                        delay_show=200,
+                        delay_hide=200,
+                        children=dcc.Graph(
+                            id="line-vitimas",
+                            style={"height": f"{LINE_CHART_HEIGHT}px"},
+                            config={"displaylogo": False}
+                        )
+                    )
 
                 ], style=card_style("10px 12px"))
-            ], style={"flex": "1 1 0"})
+
+            ], style={
+                "width": "50%",
+                "display": "flex",
+                "flexDirection": "column",
+                "gap": "16px"
+            })
+
         ], style={
             "display": "flex",
             "gap": "16px",
             "alignItems": "stretch",
-            "marginBottom": "14px"
+            "marginBottom": "14px",
+            "width": "100%"
         }),
 
-        html.Div([
-            html.Div([
-                dcc.Loading(                    
-                        type="circle",  
-                        delay_show=200,
-                        delay_hide=200,
-                        children= dcc.Graph(
-                        id="bar-veiculos",
-                        style={"height": "260px"},
-                        config={"displaylogo": False}
-                        )
-                        )
-                
-            ], style={**card_style("10px 12px"), "width": "46%"}),
+
+        # =========================
+        # BOTTOM CHARTS
+        # =========================
+    html.Div([
 
             html.Div([
                 dcc.Loading(
-                        type="circle",  
-                        delay_show=200,
-                        delay_hide=200,
-                        children= dcc.Graph(
-                    id="pie-meteorologia",
-                    style={"height": "260px"},
-                    config={"displaylogo": False}
-                )
+                    type="circle",
+                    delay_show=200,
+                    delay_hide=200,
+                    children=dcc.Graph(
+                        id="bar-veiculos",
+                        style={"height": "260px"},
+                        config={"displaylogo": False}
+                    )
                 )
 
-            ], style={**card_style("10px 12px"), "width": "54%"})
+            ], style={
+                **card_style("10px 12px"),
+                "width": "50%"
+            }),
+
+            html.Div([
+                dcc.Loading(
+                    type="circle",
+                    delay_show=200,
+                    delay_hide=200,
+                    children=dcc.Graph(
+                        id="treemap-meteorologia",
+                        style={"height": "260px"},
+                        config={"displaylogo": False}
+                    )
+                )
+
+            ], style={
+                **card_style("10px 12px"),
+                "width": "50%"
+            })
+
         ], style={
             "display": "flex",
             "gap": "16px",
             "alignItems": "stretch"
         })
+
     ], style={
         "maxWidth": "1320px",
         "margin": "0 auto"
     })
+
 ], style={
     "padding": "18px 20px 24px 20px",
     "backgroundColor": BG,
     "fontFamily": "Arial, sans-serif",
     "minHeight": "100vh"
 })
-
-
 # =========================
 # 8. CALLBACK MENU
 # =========================
@@ -892,7 +979,7 @@ def update_selected_month(click_acidentes, click_vitimas, reset_clicks):
     Output("line-acidentes", "figure"),
     Output("line-vitimas", "figure"),
     Output("bar-veiculos", "figure"),
-    Output("pie-meteorologia", "figure"),
+    Output("treemap-meteorologia", "figure"),
     Input("selected-district", "data"),
     Input("selected-month", "data")
 )
@@ -1167,35 +1254,30 @@ def update_dashboard(selected_district, selected_month):
     # =========================
     # METEOROLOGIA (FIX DO BUG dff → kpi_df)
     # =========================
-    if meteo_col and meteo_col in kpi_df.columns:
-        meteo_df = kpi_df[meteo_col].astype(str).value_counts().reset_index()
-        meteo_df.columns = ["Meteorologia", "Total"]
+# =========================
+# METEOROLOGIA (TREEMAP)
+# =========================tipo_via_col
+    if tipo_via_col and tipo_via_col in kpi_df.columns:
+        tipo_via_df = kpi_df[tipo_via_col].astype(str).value_counts().reset_index()
+        tipo_via_df.columns = ["Tipos de vias", "Total"]
 
-        fig_pie = px.pie(
-            meteo_df,
-            names="Meteorologia",
+        fig_treemap = px.treemap(
+            tipo_via_df,
+            path=["Tipos de vias"],
             values="Total",
-            title="Meteorologia",
-            hole=0.56,
-            color_discrete_sequence=PIE_COLORS
+            title="Tipos de Vias",
+            color="Total",
+            color_continuous_scale="Blues"
         )
 
-        apply_common_figure_style(fig_pie, height=260)
+        apply_common_figure_style(fig_treemap, height=260)
 
-        fig_pie.update_layout(
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                yanchor="middle",
-                y=0.5,
-                xanchor="left",
-                x=1.02,
-                bgcolor="rgba(255,255,255,0)",
-                font=dict(size=12)
-            )
+        fig_treemap.update_layout(
+            margin=dict(t=40, l=10, r=10, b=10),
+            coloraxis_showscale=False
         )
     else:
-        fig_pie = go.Figure()
+        fig_treemap = go.Figure()
 
   
 
@@ -1220,7 +1302,7 @@ def update_dashboard(selected_district, selected_month):
         fig_line_ac,
         fig_line_vit,
         fig_bar,
-        fig_pie
+        fig_treemap
     )
 # =========================
 # 11. RUN
