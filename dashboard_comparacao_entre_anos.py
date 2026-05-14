@@ -4,11 +4,12 @@ import unicodedata
 import dash
 from dash import dcc, html, Input, Output
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+DATA_DIR = os.path.join(BASE_DIR, "Datasets_Limpos")
 
 # ==============================================================================
 # 1. FUNÇÕES AUXILIARES
@@ -49,6 +50,10 @@ def parse_mes_num(series):
     return parsed_text.fillna(parsed_numeric).astype("Int64")
 
 
+def format_int_pt(value):
+    return f"{int(value):,}".replace(",", " ")
+
+
 # ==============================================================================
 # 2. MESES
 # ==============================================================================
@@ -70,68 +75,56 @@ MONTH_ORDER_ABR = list(MONTH_LABELS_ABR.values())
 # ==============================================================================
 # 3. CARREGAR DADOS REAIS
 # ==============================================================================
+
+
 def load_data():
+    parquet_path = os.path.join(DATA_DIR, "acidentes_total.parquet")
+
+    if os.path.exists(parquet_path):
+        print("✅ A carregar dados do ficheiro Parquet (otimizado)...")
+        return pd.read_parquet(parquet_path)
+
+    print("⚠️ Parquet não encontrado, a ler ficheiros Excel...")
     possible_files = [
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2018_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2019_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2020_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2021_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2022_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2023_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2024_limpo.xlsx"),
+        os.path.join(DATA_DIR, f"Tabela_acidentes_{ano}_limpo.xlsx")
+        for ano in range(2018, 2025)
     ]
 
     dfs = []
-
     for file in possible_files:
-        if not os.path.exists(file):
-            continue
-
-        try:
-            df_local = pd.read_excel(file)
-        except Exception as e:
-            print(f"Erro ao ler {file}: {e}")
-            continue
-
-        filename = os.path.basename(file)
-        digits = "".join(filter(str.isdigit, filename))
-
-        if len(digits) >= 4:
-            df_local["Ano"] = int(digits[:4])
-
-        dfs.append(df_local)
+        if os.path.exists(file):
+            try:
+                df_local = pd.read_excel(file)
+                digits = "".join(filter(str.isdigit, os.path.basename(file)))
+                if len(digits) >= 4:
+                    df_local["Ano"] = int(digits[:4])
+                dfs.append(df_local)
+            except Exception as e:
+                print(f"Erro a ler {file}: {e}")
+                continue
 
     if not dfs:
-        print("Aviso: não foram encontrados ficheiros de acidentes.")
         return pd.DataFrame()
 
-    return pd.concat(dfs, ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
+    try:
+        df.to_parquet(parquet_path, index=False)
+        print("💾 Parquet criado com sucesso.")
+    except Exception as e:
+        print(f"Não foi possível guardar Parquet: {e}")
 
+    return df
 
 df_principal = load_data()
-
-
 # ==============================================================================
 # 4. PREPARAR COLUNAS REAIS
 # ==============================================================================
 mes_col = find_column(df_principal, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
 
-ligeiros_col = find_column(df_principal, [
-    "# Veículos Ligeiros"
-])
-
-pesados_col = find_column(df_principal, [
-    "# Veículos Pesados"
-])
-
-
-motos_col = find_column(df_principal, [
-    "# Ciclomotores / Motociclos"
-])
-
-outros_col = find_column(df_principal, [
-    "# Outros Veículos"
-])
+ligeiros_col = find_column(df_principal, ["# Veículos Ligeiros"])
+pesados_col = find_column(df_principal, ["# Veículos Pesados"])
+motos_col = find_column(df_principal, ["# Ciclomotores / Motociclos"])
+outros_col = find_column(df_principal, ["# Outros Veículos"])
 
 meteo_col = find_column(df_principal, [
     "Factores Atmosféricos",
@@ -147,9 +140,7 @@ natureza_col = find_column(df_principal, [
     "Tipo de Acidente"
 ])
 
-tipo_via_col = find_column(df_principal, [
-    "Tipos Vias",
-])
+tipo_via_col = find_column(df_principal, ["Tipos Vias"])
 
 if not df_principal.empty:
     if mes_col:
@@ -182,15 +173,29 @@ ano_comp_default = anos_disponiveis[-2] if len(anos_disponiveis) >= 2 else ano_b
 
 
 # ==============================================================================
-# 5. ESTILOS
+# 5. ESTILOS - CONFIGURAÇÃO CENTRALIZADA
 # ==============================================================================
-PRIMARY = "#153B6D"
-TEXT_DARK = "#1C3252"
-TEXT_MID = "#66758C"
-BG = "#F3F6FB"
-CARD_BG = "#FFFFFF"
-BORDER = "#E1E8F0"
 
+# CORES PRINCIPAIS
+TEXT_DARK = "#000000"
+TEXT_MID = "#000000"
+TEXT_LIGHT = "#9CA3AF"
+
+BG = "#F4F6F8"
+CARD_BG = "#FFFFFF"
+BORDER = "#E5E7EB"
+
+PRIMARY = "#000000"
+SECONDARY = "#000000"
+ACCENT = "#E74C3C"
+WARNING = "#F9A825"
+INFO = "#1565C0"
+NEUTRAL = "#BDC3C7"
+
+RODOVIARIA_PRIMARY = "#2B506E"
+RODOVIARIA_SECONDARY = "#455A64"
+
+# Cores por ano
 YEAR_COLORS = {
     2018: "#0072B2",
     2019: "#E69F00",
@@ -210,36 +215,83 @@ FALLBACK_COLORS = [
 def color_for_year(year):
     if year in YEAR_COLORS:
         return YEAR_COLORS[year]
-
     if not anos_disponiveis:
         return PRIMARY
-
     idx = anos_disponiveis.index(year) if year in anos_disponiveis else 0
     return FALLBACK_COLORS[idx % len(FALLBACK_COLORS)]
 
 
-def card_style(padding="22px"):
-    return {
-        "backgroundColor": CARD_BG,
-        "padding": padding,
-        "borderRadius": "18px",
-        "boxShadow": "0 2px 10px rgba(28,50,82,0.06)",
-        "border": f"1px solid {BORDER}",
+# TIPOGRAFIA
+FONT_FAMILY = "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+
+FONT_SIZES = {
+    "xs": "11px",
+    "sm": "12px",
+    "base": "13px",
+    "md": "14px",
+    "lg": "15px",
+    "xl": "16px",
+    "2xl": "18px",
+    "3xl": "22px",
+    "4xl": "28px",
+    "5xl": "32px",
+    "main_title": "32px",
+    "main_subtitle": "24px",
+    "graph_title": "20px",
+    "axis": "14px",
+    "menu_item": "14px",
+    "menu_section": "11px",
+    "button": "12px",
+}
+
+FONT_WEIGHTS = {
+    "light": "300",
+    "normal": "400",
+    "medium": "500",
+    "semibold": "600",
+    "bold": "700",
+}
+
+
+def get_font_size(key):
+    return FONT_SIZES.get(key, FONT_SIZES["base"])
+
+
+def get_font_weight(key):
+    return FONT_WEIGHTS.get(key, FONT_WEIGHTS["normal"])
+
+
+def text_style(size_key="base", color=TEXT_DARK, weight_key="normal", extra=None):
+    style = {
+        "fontFamily": FONT_FAMILY,
+        "fontSize": get_font_size(size_key),
+        "color": color,
+        "fontWeight": get_font_weight(weight_key),
     }
+    if extra:
+        style.update(extra)
+    return style
 
 
-def menu_item_style(active=False):
+def section_title_style():
+    return text_style("graph_title", PRIMARY, "semibold", {"letterSpacing": "-0.2px", "margin": "0"})
+
+
+def main_title_style():
+    return text_style("main_title", PRIMARY, "bold", {"letterSpacing": "-0.5px", "margin": "0"})
+
+
+def main_subtitle_style():
+    return text_style("main_subtitle", TEXT_MID, "normal", {"margin": "4px 0 0 0"})
+
+
+def card_style(padding="16px"):
     return {
-        "display": "block",
-        "padding": "12px 14px",
+        "background": CARD_BG,
         "borderRadius": "12px",
-        "color": PRIMARY if active else TEXT_DARK,
-        "fontSize": "14px",
-        "fontWeight": "700" if active else "600",
-        "marginBottom": "10px",
-        "background": "#EAF1FB" if active else "#F7FAFE",
-        "border": "1px solid #D7E3F1",
-        "textDecoration": "none",
+        "padding": padding,
+        "boxShadow": "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.12)",
+        "border": f"1px solid {BORDER}",
     }
 
 
@@ -248,16 +300,15 @@ def sidebar_style(is_open=False):
         "position": "fixed",
         "top": "0",
         "left": "0",
-        "width": "260px",
+        "width": "280px",
         "height": "100vh",
-        "background": "#FFFFFF",
-        "boxShadow": "2px 0 16px rgba(28,50,82,0.18)",
-        "padding": "26px 20px",
+        "background": PRIMARY,
+        "boxShadow": "4px 0 20px rgba(0,0,0,0.15)",
+        "padding": "0",
         "zIndex": "999",
-        "transition": "transform 0.3s ease",
+        "transition": "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         "transform": "translateX(0)" if is_open else "translateX(-320px)",
-        "fontFamily": "Arial, sans-serif",
-        "borderRight": f"1px solid {BORDER}",
+        "fontFamily": FONT_FAMILY,
         "boxSizing": "border-box",
     }
 
@@ -265,20 +316,60 @@ def sidebar_style(is_open=False):
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "18px",
-        "left": "20px",
+        "top": "16px",
+        "left": "16px",
         "zIndex": "1001",
-        "width": "44px",
-        "height": "44px",
+        "width": "48px",
+        "height": "48px",
         "border": "none",
-        "borderRadius": "14px",
-        "background": PRIMARY,
+        "borderRadius": "12px",
+        "background": "#333333",
         "color": "white",
-        "fontSize": "24px",
-        "fontWeight": "700",
+        "fontSize": "20px",
+        "fontWeight": "400",
         "cursor": "pointer",
-        "boxShadow": "0 4px 14px rgba(21,59,109,0.30)",
+        "boxShadow": "0 2px 8px rgba(26,26,46,0.3)",
         "lineHeight": "1",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "transition": "all 0.2s ease"
+    }
+
+
+def menu_item_text_style(active=False):
+    return {
+        "color": "#FFFFFF" if active else "rgba(255,255,255,0.7)",
+        "fontSize": get_font_size("menu_item"),
+        "fontWeight": get_font_weight("medium"),
+        "fontFamily": FONT_FAMILY,
+    }
+
+
+def menu_section_text_style():
+    return {
+        "color": "rgba(255,255,255,0.4)",
+        "fontSize": get_font_size("menu_section"),
+        "fontWeight": get_font_weight("semibold"),
+        "fontFamily": FONT_FAMILY,
+        "letterSpacing": "1px",
+        "margin": "20px 20px 12px 20px",
+    }
+
+
+def menu_item_style(active=False):
+    base = menu_item_text_style(active)
+    return {
+        **base,
+        "display": "block",
+        "padding": "14px 18px",
+        "borderRadius": "8px",
+        "marginBottom": "4px",
+        "background": "rgba(255,255,255,0.1)" if active else "transparent",
+        "border": "none",
+        "textDecoration": "none",
+        "transition": "all 0.2s ease",
+        "borderLeft": f"3px solid {ACCENT}" if active else "3px solid transparent"
     }
 
 
@@ -288,7 +379,8 @@ def dropdown_label_style():
         "display": "block",
         "marginBottom": "6px",
         "fontWeight": "700",
-        "color": TEXT_MID
+        "color": TEXT_MID,
+        "fontFamily": FONT_FAMILY,
     }
 
 
@@ -296,8 +388,56 @@ def dropdown_style(width):
     return {
         "width": width,
         "color": TEXT_DARK,
-        "fontSize": "13px"
+        "fontSize": "13px",
+        "fontFamily": FONT_FAMILY,
     }
+
+
+def axis_font():
+    return dict(
+        size=int(get_font_size("axis").replace("px", "")),
+        color=TEXT_MID,
+        family=FONT_FAMILY
+    )
+
+
+def apply_common_figure_style(fig, height=300):
+    fig.update_layout(
+        template="plotly_white",
+        height=height,
+        separators=" ",
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        margin=dict(l=10, r=10, t=30, b=10),
+        title=dict(
+            x=0.02,
+            xanchor="left",
+            font=dict(
+                family=FONT_FAMILY,
+                size=int(get_font_size("graph_title").replace("px", "")),
+                color=PRIMARY,
+            )
+        ),
+        font=dict(family=FONT_FAMILY, size=12, color=TEXT_DARK),
+        showlegend=True
+    )
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor=BORDER,
+        tickfont=axis_font(),
+        title_font=axis_font(),
+        tickformat=" ",
+        gridcolor="#ECF0F1",
+    )
+    fig.update_yaxes(
+        gridcolor="#ECF0F1",
+        zeroline=False,
+        linecolor=BORDER,
+        tickfont=axis_font(),
+        tickformat=" ",
+        title_font=axis_font(),
+    )
+    return fig
 
 
 # ==============================================================================
@@ -360,182 +500,227 @@ def get_comparison_data(dff, atributo):
 app = dash.Dash(__name__)
 app.title = "Análise Comparativa da Sinistralidade"
 
-app.layout = html.Div(
-    style={
-        "fontFamily": "Arial, sans-serif",
-        "backgroundColor": BG,
-        "padding": "18px 20px 24px 20px",
-        "minHeight": "100vh"
-    },
-    children=[
-        html.Button(
-            "☰",
-            id="hamburger-btn",
-            n_clicks=0,
-            title="Abrir menu",
-            style=hamburger_style()
-        ),
+app.layout = html.Div([
+    # Hamburger Button
+    html.Button(
+        html.Div([
+            html.Div(style={"width": "20px", "height": "2px", "background": "white", "marginBottom": "5px", "borderRadius": "1px"}),
+            html.Div(style={"width": "20px", "height": "2px", "background": "white", "marginBottom": "5px", "borderRadius": "1px"}),
+            html.Div(style={"width": "20px", "height": "2px", "background": "white", "borderRadius": "1px"})
+        ], style={"display": "flex", "flexDirection": "column", "alignItems": "center"}),
+        id="hamburger-btn",
+        n_clicks=0,
+        title="Abrir menu",
+        style=hamburger_style()
+    ),
 
-        html.Div(
-            id="sidebar-menu",
-            children=[
-                html.H2("Menu", style={
-                    "margin": "0",
-                    "color": PRIMARY,
-                    "fontSize": "24px",
-                    "fontWeight": "800"
-                }),
-
-                html.P("Dashboards", style={
-                    "margin": "4px 0 24px 0",
-                    "color": TEXT_MID,
-                    "fontSize": "13px"
-                }),
-
-                html.A("Dashboard Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
-                html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style()),
-                html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style(active=True)),
-
-                html.Div(
-                    "Clica novamente em ☰ para fechar o menu.",
-                    style={
-                        "position": "absolute",
-                        "bottom": "28px",
-                        "left": "20px",
-                        "right": "20px",
-                        "fontSize": "12px",
-                        "color": TEXT_MID,
-                        "lineHeight": "1.4"
-                    }
-                )
-            ],
-            style=sidebar_style(False)
-        ),
-
-
-                html.Div(
-                    style={
-                        "maxWidth": "1320px",
-                        "margin": "0 auto"
-                    },
-                    children=[
-
-                        # HEADER
-                        html.Div(
-                            style={
-                                **card_style("20px"),
-                                "display": "flex",
-                                "justifyContent": "space-between",
-                                "alignItems": "center",
-                                "marginBottom": "16px",
-                                "gap": "20px"
-                            },
-                            children=[
-
-                                html.Div([
-                                    html.H1(
-                                        "Análise Comparativa da Sinistralidade",
-                                        style={
-                                            "margin": "0",
-                                            "color": PRIMARY,
-                                            "fontSize": "34px",
-                                            "fontWeight": "800"
-                                        }
-                                    ),
-
-                                ]),
-
-                                html.Div(
-                                    style={
-                                        "display": "flex",
-                                        "gap": "14px",
-                                        "alignItems": "flex-end",
-                                        "flexWrap": "wrap",
-                                        "justifyContent": "flex-end"
-                                    },
-                                    children=[
-
-                                        html.Div([
-                                            html.Label("Analisar por", style=dropdown_label_style()),
-                                            dcc.Dropdown(
-                                                id="atributo-dinamico",
-                                                options=[
-                                                    {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
-                                                    {"label": "Meteorologia", "value": "Meteorologia"},
-                                                    {"label": "Natureza do acidente", "value": "Natureza"},
-                                                    {"label": "Tipos de Vias", "value": "Tipo_Via"},
-                                                ],
-                                                value="Tipo_Veiculo",
-                                                clearable=False,
-                                                style=dropdown_style("190px")
-                                            )
-                                        ]),
-
-                                        html.Div([
-                                            html.Label("Selecionar anos", style=dropdown_label_style()),
-                                            dcc.Dropdown(
-                                                id="anos-selecionados",
-                                                options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                                                value=[ano_comp_default, ano_base_default],  # valores iniciais
-                                                multi=True,
-                                                clearable=False,
-                                                style=dropdown_style("220px")
-                                            )
-                                        ]),
-
-                                        html.Div([
-                                            html.Label("Mês", style=dropdown_label_style()),
-                                            dcc.Dropdown(
-                                                id="mes-filtro",
-                                                options=[{"label": "Todos", "value": "Geral"}] + [
-                                                    {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
-                                                    for i in range(1, 13)
-                                                ],
-                                                value="Geral",
-                                                clearable=False,
-                                                style=dropdown_style("160px")
-                                            )
-                                        ])
-                                    ]
-                                )
-                            ]
+    # Sidebar
+    html.Div(
+        id="sidebar-menu",
+        children=[
+            # Header da sidebar
+            html.Div([
+                html.Div([
+                    html.Div(style={
+                        "width": "40px",
+                        "height": "40px",
+                        "borderRadius": "10px",
+                        "display": "flex",
+                        "alignItems": "center",
+                        "justifyContent": "center",
+                        "marginRight": "12px"
+                    }, children=[
+                        html.Span("AR", style=text_style("md", "white", "bold"))
+                    ]),
+                    html.Div([
+                        html.H2(
+                            "Acidentes",
+                            style=text_style("2xl", "#FFFFFF", "bold", {"margin": "0", "letterSpacing": "-0.3px"})
                         ),
-
-                        html.Div(
-                            style=card_style("20px"),
-                            children=[
-
-                                html.Div(id="titulo-comparacao", style={
-                                    "textAlign": "center",
-                                    "margin": "0 0 14px 0",
-                                    "color": TEXT_DARK,
-                                    "fontSize": "20px",
-                                    "fontWeight": "800"
-                                }),
-
-                                html.Div(id="subtitulo-comparacao", style={
-                                    "textAlign": "center",
-                                    "margin": "-8px 0 10px 0",
-                                    "color": TEXT_MID,
-                                    "fontSize": "13px"
-                                }),
-
-                                dcc.Loading(
-                                    type='circle',
-                                    delay_show=200,
-                                    delay_hide=200,
-                                    children=dcc.Graph(
-                                        id="graph-comparacao",
-                                        config={"displaylogo": False}
-                                    )
-                                )
-                            ]
+                        html.P(
+                            "Rodoviários Portugal",
+                            style=text_style("sm", "rgba(255,255,255,0.6)", "normal", {"margin": "0"})
                         )
-                    ]
-                )
-            ]
-        )
+                    ])
+                ], style={"display": "flex", "alignItems": "center"})
+            ], style={
+                "padding": "24px 20px",
+                "borderBottom": "1px solid rgba(255,255,255,0.1)"
+            }),
 
+            # Menu items
+            html.Div([
+                html.P("DASHBOARDS", style=menu_section_text_style()),
+
+                html.Div([
+                    html.A(
+                        "Dashboard Principal",
+                        href="[127.0.0.1](http://127.0.0.1:8050)",
+                        style=menu_item_style(active=False)
+                    ),
+                    html.A(
+                        "Evolução Temporal",
+                        href="[127.0.0.1](http://127.0.0.1:8051)",
+                        style=menu_item_style(active=False)
+                    ),
+                    html.A(
+                        "Comparação entre anos",
+                        href="[127.0.0.1](http://127.0.0.1:8052)",
+                        style=menu_item_style(active=True)
+                    ),
+                    html.A(
+                        "Mapa de Portugal",
+                        href="[127.0.0.1](http://127.0.0.1:8056)",
+                        style=menu_item_style(active=False)
+                    ),
+                ], style={"padding": "0 12px"})
+            ]),
+
+            # Footer da sidebar
+            html.Div([
+                html.Div(
+                    "Clique novamente no menu para fechar",
+                    style=text_style("xs", "rgba(255,255,255,0.4)", "normal", {"lineHeight": "1.4", "textAlign": "center"})
+                )
+            ], style={
+                "position": "absolute",
+                "bottom": "0",
+                "left": "0",
+                "right": "0",
+                "padding": "20px",
+                "borderTop": "1px solid rgba(255,255,255,0.1)"
+            })
+        ],
+        style=sidebar_style(False)
+    ),
+
+    # Conteúdo Principal
+    html.Div([
+        # Header
+        html.Div([
+            html.Div([
+                # Bloco esquerda (vazio para equilibrar)
+                html.Div(style={"width": "20%"}),
+
+                # Título central
+                html.Div([
+                    html.H1(
+                        "Análise Comparativa da Sinistralidade",
+                        style=main_title_style()
+                    ),
+                    html.P(
+                        "Comparação entre diferentes anos",
+                        style=main_subtitle_style()
+                    )
+                ], style={
+                    "width": "60%",
+                    "textAlign": "center"
+                }),
+
+                # Filtros à direita
+                html.Div([
+                    html.Div([
+                        html.Label("Analisar por", style=dropdown_label_style()),
+                        dcc.Dropdown(
+                            id="atributo-dinamico",
+                            options=[
+                                {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
+                                {"label": "Meteorologia", "value": "Meteorologia"},
+                                {"label": "Natureza do acidente", "value": "Natureza"},
+                                {"label": "Tipos de Vias", "value": "Tipo_Via"},
+                            ],
+                            value="Tipo_Veiculo",
+                            clearable=False,
+                            style=dropdown_style("180px")
+                        )
+                    ], style={"marginRight": "12px"}),
+
+                    html.Div([
+                        html.Label("Anos", style=dropdown_label_style()),
+                        dcc.Dropdown(
+                            id="anos-selecionados",
+                            options=[{"label": str(a), "value": a} for a in anos_disponiveis],
+                            value=[ano_comp_default, ano_base_default],
+                            multi=True,
+                            clearable=False,
+                            style=dropdown_style("200px")
+                        )
+                    ], style={"marginRight": "12px"}),
+
+                    html.Div([
+                        html.Label("Mês", style=dropdown_label_style()),
+                        dcc.Dropdown(
+                            id="mes-filtro",
+                            options=[{"label": "Todos", "value": "Geral"}] + [
+                                {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
+                                for i in range(1, 13)
+                            ],
+                            value="Geral",
+                            clearable=False,
+                            style=dropdown_style("150px")
+                        )
+                    ])
+                ], style={
+                    "width": "20%",
+                    "display": "flex",
+                    "justifyContent": "flex-end",
+                    "alignItems": "flex-end",
+                    "gap": "12px",
+                    "flexWrap": "wrap"
+                })
+
+            ], style={
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "marginBottom": "24px",
+                "paddingTop": "8px",
+                "width": "100%"
+            }),
+        ]),
+
+        # Card do gráfico
+        html.Div([
+            html.Div([
+                html.H3(id="titulo-comparacao", style=section_title_style()),
+            ], style={
+                "display": "flex",
+                "justifyContent": "space-between",
+                "alignItems": "center",
+                "marginBottom": "12px"
+            }),
+
+            html.Div(id="subtitulo-comparacao", style={
+                "textAlign": "left",
+                "margin": "-8px 0 16px 0",
+                "color": TEXT_MID,
+                "fontSize": "13px",
+                "fontFamily": FONT_FAMILY,
+            }),
+
+            dcc.Loading(
+                type='circle',
+                delay_show=200,
+                delay_hide=200,
+                color=ACCENT,
+                children=dcc.Graph(
+                    id="graph-comparacao",
+                    config={"displaylogo": False}
+                )
+            )
+        ], style=card_style("20px"))
+
+    ], style={
+        "maxWidth": "1400px",
+        "margin": "0 auto"
+    })
+
+], style={
+    "padding": "20px 24px 32px 24px",
+    "backgroundColor": BG,
+    "fontFamily": FONT_FAMILY,
+    "minHeight": "100vh"
+})
 
 
 # ==============================================================================
@@ -557,7 +742,6 @@ def toggle_sidebar(n_clicks):
     Output("graph-comparacao", "figure"),
     Output("titulo-comparacao", "children"),
     Output("subtitulo-comparacao", "children"),
-
     Input("anos-selecionados", "value"),
     Input("mes-filtro", "value"),
     Input("atributo-dinamico", "value")
@@ -568,12 +752,11 @@ def update_comparison(anos_selecionados, mes, atributo):
         "Tipo_Veiculo": "Tipo de Veículo",
         "Meteorologia": "Meteorologia",
         "Natureza": "Natureza",
-        "Tipo_Via": "Tipos Vias"
+        "Tipo_Via": "Tipos de Vias"
     }
 
     def make_empty_fig(message):
-        fig = px.scatter()
-
+        fig = go.Figure()
         fig.update_layout(
             template="plotly_white",
             height=500,
@@ -585,25 +768,20 @@ def update_comparison(anos_selecionados, mes, atributo):
                     xref="paper",
                     yref="paper",
                     showarrow=False,
-                    font=dict(size=16, color=TEXT_MID)
+                    font=dict(size=16, color=TEXT_MID, family=FONT_FAMILY)
                 )
             ],
             xaxis=dict(visible=False),
             yaxis=dict(visible=False),
             margin=dict(t=20, b=20, l=20, r=20)
         )
-
         return fig
 
-    # ==========================================================================
-    # VALIDAR DADOS
-    # ==========================================================================
+    # Validar dados
     if df_principal.empty:
         return make_empty_fig("Sem dados disponíveis"), "", ""
 
-    # ==========================================================================
-    # FILTRAR ANOS
-    # ==========================================================================
+    # Filtrar anos
     if not anos_selecionados or len(anos_selecionados) < 1:
         return make_empty_fig("Selecione pelo menos um ano"), "", ""
 
@@ -626,72 +804,19 @@ def update_comparison(anos_selecionados, mes, atributo):
 
     data = pd.concat(dataframes, ignore_index=True)
 
-
-
-# ==========================================================================
-# ORDENAR CATEGORIAS ALFABETICAMENTE
-# ==========================================================================
+    # Ordenar categorias alfabeticamente
     total_order = sorted(data["Categoria"].unique())
-
     data["Categoria"] = pd.Categorical(
         data["Categoria"],
         categories=total_order,
         ordered=True
     )
 
-    # ==========================================================================
-    # METEOROLOGIA → PIE CHART
-    # ==========================================================================
-    if atributo == "Meteorologia":
-        fig = px.bar(
-            data,
-            x="Categoria",
-            y="Acidentes",
-            color="Ano",
-            barmode="group",
-            text="Acidentes",
-            color_discrete_map={
-                str(ano): color_for_year(ano)
-                for ano in anos_selecionados
-            }
-        )
+    color_map = {str(ano): color_for_year(ano) for ano in anos_selecionados}
 
-        fig.update_traces(
-            textposition="outside"
-        )
-
-        fig.update_layout(
-            template="plotly_white",
-            height=520,
-            paper_bgcolor="white",
-            plot_bgcolor="white",
-            xaxis_title="",
-            yaxis_title="Acidentes",
-            legend_title="Ano",
-            margin=dict(t=20, b=40, l=20, r=20),
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color=TEXT_DARK
-            )
-        )
-
-        fig.update_xaxes(
-            tickangle=20,
-            showgrid=False
-        )
-
-        fig.update_yaxes(
-            showgrid=True,
-            gridcolor="#EAEFF5",
-            zeroline=False
-        )
-
-    # ==========================================================================
-    # NATUREZA E TIPO DE VIA → BARRAS HORIZONTAIS
-    # ==========================================================================
-    elif atributo in ["Natureza", "Tipo_Via"]:
-
+    # Criar gráfico baseado no atributo
+    if atributo in ["Natureza", "Tipo_Via"]:
+        # Barras horizontais
         fig = px.bar(
             data,
             y="Categoria",
@@ -700,47 +825,24 @@ def update_comparison(anos_selecionados, mes, atributo):
             orientation="h",
             barmode="group",
             text="Acidentes",
-            color_discrete_map={
-                str(ano): color_for_year(ano)
-                for ano in anos_selecionados
-            }
+            color_discrete_map=color_map
         )
 
-        fig.update_traces(
-            textposition="outside"
-        )
+        fig.update_traces(textposition="outside")
+        apply_common_figure_style(fig, height=600)
 
         fig.update_layout(
-            template="plotly_white",
-            height=600,
-            paper_bgcolor="white",
-            plot_bgcolor="white",
             xaxis_title="Acidentes",
             yaxis_title="",
             legend_title="Ano",
-            margin=dict(t=20, b=20, l=20, r=40),
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color=TEXT_DARK
-            )
+            margin=dict(t=30, b=20, l=20, r=60),
         )
 
-        fig.update_xaxes(
-            showgrid=True,
-            gridcolor="#EAEFF5",
-            zeroline=False
-        )
+        fig.update_xaxes(showgrid=True, gridcolor="#ECF0F1", zeroline=False)
+        fig.update_yaxes(showgrid=False)
 
-        fig.update_yaxes(
-            showgrid=False
-        )
-
-    # ==========================================================================
-    # TIPO VEÍCULO → BARRAS VERTICAIS
-    # ==========================================================================
     else:
-
+        # Barras verticais
         fig = px.bar(
             data,
             x="Categoria",
@@ -748,71 +850,39 @@ def update_comparison(anos_selecionados, mes, atributo):
             color="Ano",
             barmode="group",
             text="Acidentes",
-            color_discrete_map={
-                str(ano): color_for_year(ano)
-                for ano in anos_selecionados
-            }
+            color_discrete_map=color_map
         )
 
-        fig.update_traces(
-            textposition="outside"
-        )
+        fig.update_traces(textposition="outside")
+        apply_common_figure_style(fig, height=520)
 
         fig.update_layout(
-            template="plotly_white",
-            height=520,
-            paper_bgcolor="white",
-            plot_bgcolor="white",
             xaxis_title="",
             yaxis_title="Acidentes",
             legend_title="Ano",
-            margin=dict(t=20, b=40, l=20, r=20),
-            font=dict(
-                family="Arial, sans-serif",
-                size=12,
-                color=TEXT_DARK
-            )
+            margin=dict(t=30, b=60, l=20, r=20),
         )
 
-        fig.update_xaxes(
-            showgrid=False,
-            tickangle=0
-        )
+        fig.update_xaxes(showgrid=False, tickangle=20 if atributo == "Meteorologia" else 0)
+        fig.update_yaxes(showgrid=True, gridcolor="#ECF0F1", zeroline=False)
 
-        fig.update_yaxes(
-            showgrid=True,
-            gridcolor="#EAEFF5",
-            zeroline=False
-        )
-
-    # ==========================================================================
-    # LABEL DO MÊS
-    # ==========================================================================
+    # Label do mês
     mes_label = (
         "Ano Inteiro"
         if mes == "Geral"
         else next(
-            (
-                MONTH_LABELS_FULL[i]
-                for i in range(1, 13)
-                if MONTH_LABELS_ABR[i] == mes
-            ),
+            (MONTH_LABELS_FULL[i] for i in range(1, 13) if MONTH_LABELS_ABR[i] == mes),
             mes
         )
     )
 
-    # ==========================================================================
-    # TÍTULOS
-    # ==========================================================================
+    # Títulos
     anos_texto = ", ".join(map(str, anos_selecionados))
-
-    titulo = (
-        f"Comparação entre {anos_texto} - "
-        f"{atributo_labels.get(atributo)}"
-    )
+    titulo = f"Comparação entre {anos_texto} - {atributo_labels.get(atributo)}"
     subtitulo = f"Filtro temporal: {mes_label}"
 
     return fig, titulo, subtitulo
+
 
 # ==============================================================================
 # 10. RUN

@@ -244,9 +244,6 @@ else:
 # 4. ESTILOS - CONFIGURAÇÃO CENTRALIZADA
 # =========================
 
-# =========================
-# 🎨 CORES PRINCIPAIS
-# =========================
 
 
 
@@ -547,7 +544,7 @@ def hamburger_style():
         "height": "48px",
         "border": "none",
         "borderRadius": "12px",
-        "background": PRIMARY,
+        "background": "#333333",  # Um cinzento antracite
         "color": "white",
         "fontSize": "20px",
         "fontWeight": "400",
@@ -566,7 +563,7 @@ def menu_item_style(active=False):
     return {
         **base,
         "display": "block",
-        "padding": "14px 20px",
+        "padding": "14px 18px",
         "borderRadius": "8px",
         "marginBottom": "4px",
         "background": "rgba(255,255,255,0.1)" if active else "transparent",
@@ -882,19 +879,24 @@ app.layout = html.Div([
                 html.Div([
                     html.A(
                         "Dashboard Principal",
-                        href="(http://127.0.0.1:8050)",
+                        href="http://127.0.0.1:8050",
                         style=menu_item_style(active=True)
                     ),
 
                     html.A(
                         "Evolução Temporal",
-                        href="(http://127.0.0.1:8051)",
+                        href="http://127.0.0.1:8051",
                         style=menu_item_style()
                     ),
 
                     html.A(
                         "Comparação entre anos",
-                        href="(http://127.0.0.1:8052)",
+                        href="http://127.0.0.1:8052",
+                        style=menu_item_style()
+                    ),
+                    html.A(
+                        "Mapa de Portugal",
+                        href="http://127.0.0.1:8056",
                         style=menu_item_style()
                     ),
                 ], style={"padding": "0 12px"})
