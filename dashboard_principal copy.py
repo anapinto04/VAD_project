@@ -248,7 +248,7 @@ BORDER = "#E5E7EB"
 
 PRIMARY = "#000000"
 SECONDARY = "#000000"
-ACCENT = "#E74C3C"
+ACCENT = "#78281F"
 WARNING = "#F9A825"
 INFO = "#1565C0"
 NEUTRAL = "#BDC3C7"
@@ -1062,7 +1062,7 @@ app.layout = html.Div([
                 }),
                 dcc.Loading(
                     type="circle",
-                    color=ACCENT,
+                    color="ACCENT",
                     children=dcc.Graph(
                         id="treemap-meteorologia",
                         style={"height": f"{LINE_CHART_HEIGHT}px"},
@@ -1332,7 +1332,7 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
         kpi2 = build_kpi_card_simple(
             label="Acidentes Mortais",
             value=total_acidentes_mortais,
-            accent_color=WARNING,
+            accent_color=ACCENT,
             prev_value=prev_acidentes_mortais
         )
 
@@ -1426,7 +1426,7 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
         kpi2 = build_kpi_card_simple(
             label="Acidentes Graves",
             value=total_graves,
-            accent_color=WARNING,
+            accent_color=ACCENT,
             prev_value=prev_graves
         )
 
@@ -1500,10 +1500,10 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
                 y=graves_mes["Feridos_Graves"],
                 mode="lines+markers",
                 name="Feridos Graves",
-                line=dict(color=WARNING, width=2.5),
-                marker=dict(size=8, color=WARNING, line=dict(width=2, color="white")),
+                line=dict(color=ACCENT, width=2.5),
+                marker=dict(size=8, color=ACCENT, line=dict(width=2, color="white")),
                 fill="tozeroy",
-                fillcolor="rgba(249, 168, 37, 0.1)"
+                fillcolor="rgba(231, 76, 60, 0.1)"
             ))
         else:
             # Modo acidentes original
