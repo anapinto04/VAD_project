@@ -2,14 +2,12 @@ import os
 import unicodedata
 
 import dash
-from dash import dcc, html, Input, Output
+from dash import dcc, html, Input, Output, callback_context
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 
 # ==============================================================================
 # 1. FUNÇÕES AUXILIARES
@@ -24,6 +22,7 @@ def find_column(df, possible_names):
 
     for name in possible_names:
         key = normalize_text(name)
+
         if key in normalized_map:
             return normalized_map[key]
 
@@ -54,21 +53,19 @@ def parse_mes_num(series):
 
 
 def parse_hora_para_numero(series):
-    """
-    Converte a coluna Hora para número inteiro 0-23.
-    Funciona com valores tipo:
-    - 14
-    - 14:30
-    - 14:30:00
-    """
     numeric = pd.to_numeric(series, errors="coerce")
 
     if numeric.notna().sum() > 0:
         return numeric.astype("Int64")
 
-    parsed = pd.to_datetime(series.astype(str).str.strip(), format="%H:%M:%S", errors="coerce")
+    parsed = pd.to_datetime(
+        series.astype(str).str.strip(),
+        format="%H:%M:%S",
+        errors="coerce"
+    )
 
     missing = parsed.isna()
+
     if missing.any():
         parsed.loc[missing] = pd.to_datetime(
             series.astype(str).str.strip().loc[missing],
@@ -114,6 +111,7 @@ def normalizar_dia_semana(series):
     }
 
     cleaned = series.astype(str).str.strip().map(normalize_text)
+
     return cleaned.map(day_map).fillna(cleaned)
 
 
@@ -130,13 +128,11 @@ MONTH_LABELS_FULL = {
 }
 
 MONTH_ORDER_ABR = list(MONTH_LABELS_ABR.values())
-
 MONTH_ORDER = list(MONTH_LABELS_FULL.values())
 DAY_ORDER = ["SEG", "TER", "QUA", "QUI", "SEX", "SAB", "DOM"]
 
-
 # ==============================================================================
-# 2. CARREGAR DADOS REAIS
+# 2. CARREGAR DADOS
 # ==============================================================================
 def load_data():
     possible_files = [
@@ -152,6 +148,7 @@ def load_data():
     dfs = []
 
     for file in possible_files:
+
         if not os.path.exists(file):
             continue
 
@@ -169,7 +166,6 @@ def load_data():
         dfs.append(df_local)
 
     if not dfs:
-        print("Aviso: não foram encontrados ficheiros de acidentes.")
         return pd.DataFrame()
 
     return pd.concat(dfs, ignore_index=True)
@@ -177,109 +173,95 @@ def load_data():
 
 df_temp = load_data()
 
-
 # ==============================================================================
-# 3. PREPARAR COLUNAS REAIS
+# 3. NORMALIZAÇÃO
 # ==============================================================================
 mes_col = find_column(df_temp, ["Mês"])
+
 dia_col = find_column(df_temp, [
     "Dia da Semana",
     "Dia Semana",
     "Dia_Semana",
     "Dia da semana",
     "Dia",
-    "DiaSemana"
 ])
+
 hora_col = find_column(df_temp, [
     "Hora",
     "Hora do Acidente",
     "Hora acidente",
-    "Hora_Ocorrencia",
-    "Hora Ocorrencia"
 ])
 
 if not df_temp.empty:
+
     if mes_col:
         df_temp["Mes_Num"] = parse_mes_num(df_temp[mes_col])
 
         df_temp["Mês"] = df_temp["Mes_Num"].map(MONTH_LABELS_ABR)
+
         df_temp["Mês"] = pd.Categorical(
             df_temp["Mês"],
             categories=MONTH_ORDER_ABR,
             ordered=True
         )
-    else:
-        df_temp["Mes_Num"] = pd.NA
-        df_temp["Mês"] = pd.NA
 
     if dia_col:
         df_temp["Dia_Semana"] = normalizar_dia_semana(df_temp[dia_col])
-        df_temp["Dia_Semana"] = pd.Categorical(df_temp["Dia_Semana"], categories=DAY_ORDER, ordered=True)
-    else:
-        df_temp["Dia_Semana"] = pd.NA
+
+        df_temp["Dia_Semana"] = pd.Categorical(
+            df_temp["Dia_Semana"],
+            categories=DAY_ORDER,
+            ordered=True
+        )
 
     if hora_col:
         df_temp["Hora"] = parse_hora_para_numero(df_temp[hora_col])
-    else:
-        df_temp["Hora"] = pd.NA
 
-    df_temp["Ano"] = pd.to_numeric(df_temp["Ano"], errors="coerce").astype("Int64")
+    df_temp["Ano"] = pd.to_numeric(
+        df_temp["Ano"],
+        errors="coerce"
+    ).astype("Int64")
 
-
-anos_disponiveis = (
-    sorted(df_temp["Ano"].dropna().astype(int).unique().tolist())
-    if not df_temp.empty and "Ano" in df_temp.columns
-    else []
+anos_disponiveis = sorted(
+    df_temp["Ano"].dropna().astype(int).unique().tolist()
 )
-
-valor_inicial_anos = anos_disponiveis
-
 
 # ==============================================================================
 # 4. ESTILOS
 # ==============================================================================
-PRIMARY = "#153B6D"
-TEXT_DARK = "#1C3252"
-TEXT_MID = "#66758C"
-BG = "#F3F6FB"
+TEXT_DARK = "#000000"
+TEXT_MID = "#000000"
+TEXT_LIGHT = "#9CA3AF"
+
+BG = "#F4F6F8"
 CARD_BG = "#FFFFFF"
-BORDER = "#E1E8F0"
-TEAL = "#008080"
+BORDER = "#E5E7EB"
+
+PRIMARY = "#000000"
+ACCENT = "#E74C3C"
+
+FONT_FAMILY = "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
 
 YEAR_COLORS = {
-    2018: "#0072B2",  # azul
-    2019: "#E69F00",  # laranja
-    2020: "#009E73",  # verde
-    2021: "#D55E00",  # vermelho escuro
-    2022: "#CC79A7",  # rosa
-    2023: "#56B4E9",  # azul claro
-    2024: "#000000",  # preto (destaque)
+    2018: "#D1D5DB",  # Cinza muito claro (Referência distante)
+    2019: "#9CA3AF",  # Cinza claro
+    2020: "#6B7280",  # Cinza médio
+    2021: "#4B5563",  # Cinza escuro
+    2022: "#374151",  # Antracite
+    2023: "#111827",  # Preto profundo
+    2024: "#E74C3C",  # O Vermelho Accent (Destaque total para o ano atual)
 }
 
-category_orders={"Ano": sorted(YEAR_COLORS.keys())}
+GAP = 16
 
-def card_style(padding="25px"):
+
+def card_style(padding="16px"):
     return {
-        "backgroundColor": CARD_BG,
-        "padding": padding,
-        "borderRadius": "18px",
-        "boxShadow": "0 2px 10px rgba(28,50,82,0.06)",
-        "border": f"1px solid {BORDER}",
-    }
-
-
-def menu_item_style(active=False):
-    return {
-        "display": "block",
-        "padding": "12px 14px",
+        "background": CARD_BG,
         "borderRadius": "12px",
-        "color": PRIMARY if active else TEXT_DARK,
-        "fontSize": "14px",
-        "fontWeight": "700" if active else "600",
-        "marginBottom": "10px",
-        "background": "#EAF1FB" if active else "#F7FAFE",
-        "border": "1px solid #D7E3F1",
-        "textDecoration": "none",
+        "padding": padding,
+        "boxShadow": "0 1px 3px rgba(0,0,0,0.08)",
+        "border": f"1px solid {BORDER}",
     }
 
 
@@ -288,230 +270,337 @@ def sidebar_style(is_open=False):
         "position": "fixed",
         "top": "0",
         "left": "0",
-        "width": "260px",
+        "width": "280px",
         "height": "100vh",
-        "background": "#FFFFFF",
-        "boxShadow": "2px 0 16px rgba(28,50,82,0.18)",
-        "padding": "26px 20px",
+        "background": PRIMARY,
+        "boxShadow": "4px 0 20px rgba(0,0,0,0.15)",
+        "padding": "0",
         "zIndex": "999",
         "transition": "transform 0.3s ease",
         "transform": "translateX(0)" if is_open else "translateX(-320px)",
-        "fontFamily": "Arial, sans-serif",
-        "borderRight": f"1px solid {BORDER}",
-        "boxSizing": "border-box",
+        "fontFamily": FONT_FAMILY,
     }
 
 
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "18px",
-        "left": "20px",
+        "top": "16px",
+        "left": "16px",
         "zIndex": "1001",
-        "width": "44px",
-        "height": "44px",
+        "width": "48px",
+        "height": "48px",
         "border": "none",
-        "borderRadius": "14px",
-        "background": PRIMARY,
+        "borderRadius": "12px",
+        "background": "#333333",
         "color": "white",
-        "fontSize": "24px",
-        "fontWeight": "700",
+        "fontSize": "20px",
         "cursor": "pointer",
-        "boxShadow": "0 4px 14px rgba(21,59,109,0.30)",
-        "lineHeight": "1",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.3)",
     }
 
+
+def menu_item_style(active=False):
+    return {
+        "display": "block",
+        "padding": "14px 18px",
+        "borderRadius": "8px",
+        "marginBottom": "4px",
+        "background": "rgba(255,255,255,0.1)" if active else "transparent",
+        "color": "#FFFFFF" if active else "rgba(255,255,255,0.7)",
+        "textDecoration": "none",
+        "fontSize": "14px",
+        "fontWeight": "600",
+        "borderLeft": f"3px solid {ACCENT}" if active else "3px solid transparent"
+    }
+
+
+def section_title_style():
+    return {
+        "fontSize": "20px",
+        "fontWeight": "600",
+        "color": PRIMARY,
+        "margin": "0"
+    }
+
+
+def main_title_style():
+    return {
+        "fontSize": "32px",
+        "fontWeight": "700",
+        "color": PRIMARY,
+        "margin": "0"
+    }
+
+
+def main_subtitle_style():
+    return {
+        "fontSize": "16px",
+        "color": "#6B7280",
+        "margin": "4px 0 0 0"
+    }
+
+
+def apply_common_figure_style(fig, height=300):
+
+    fig.update_layout(
+        template="plotly_white",
+        height=height,
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        margin=dict(l=10, r=10, t=30, b=10),
+        font=dict(
+            family=FONT_FAMILY,
+            size=12,
+            color=TEXT_DARK
+        )
+    )
+
+    fig.update_xaxes(
+        showgrid=False,
+        linecolor=BORDER
+    )
+
+    fig.update_yaxes(
+        gridcolor="#ECF0F1",
+        zeroline=False,
+        linecolor=BORDER
+    )
+
+    return fig
 
 # ==============================================================================
 # 5. APP
 # ==============================================================================
 app = dash.Dash(__name__)
-app.title = "Evolução Temporal da Sinistralidade"
-app.layout = html.Div(
-    style={
-        "fontFamily": "Arial, sans-serif",
-        "backgroundColor": BG,
-        "padding": "18px 20px 24px 20px",
-        "minHeight": "100vh"
-    },
-    children=[
-        html.Button(
-            "☰",
-            id="hamburger-btn",
-            n_clicks=0,
-            title="Abrir menu",
-            style=hamburger_style()
-        ),
+app.title = "Evolução Temporal"
 
-        html.Div(
-            id="sidebar-menu",
-            children=[
-                html.H2("Menu", style={"margin": "0", "color": PRIMARY, "fontSize": "24px", "fontWeight": "800"}),
-                html.P("Dashboards", style={"margin": "4px 0 24px 0", "color": TEXT_MID, "fontSize": "13px"}),
+app.layout = html.Div([
 
-                html.A("Mapa Principal", href="http://127.0.0.1:8050", style=menu_item_style()),
-                html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style(active=True)),
-                html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style()),
+    html.Button(
+        "☰",
+        id="hamburger-btn",
+        n_clicks=0,
+        style=hamburger_style()
+    ),
 
-                html.Div(
-                    "Clica novamente em ☰ para fechar o menu.",
+    # ==========================================================================
+    # SIDEBAR
+    # ==========================================================================
+    html.Div(
+        id="sidebar-menu",
+        children=[
+
+            html.Div([
+                html.H2(
+                    "Acidentes",
                     style={
-                        "position": "absolute",
-                        "bottom": "28px",
-                        "left": "20px",
-                        "right": "20px",
-                        "fontSize": "12px",
-                        "color": TEXT_MID,
+                        "color": "white",
+                        "margin": "0"
+                    }
+                ),
+
+                html.P(
+                    "Rodoviários Portugal",
+                    style={
+                        "color": "rgba(255,255,255,0.6)",
+                        "margin": "0"
                     }
                 )
-            ],
-            style=sidebar_style(False)
-        ),
+            ], style={
+                "padding": "24px 20px",
+                "borderBottom": "1px solid rgba(255,255,255,0.1)"
+            }),
 
-        html.Div(
-            style={"maxWidth": "1320px", "margin": "0 auto"},
-            children=[
-
-                # HEADER
-                html.Div(
-                    style={
-                        **card_style("20px"),
-                        "display": "flex",
-                        "justifyContent": "space-between",
-                        "alignItems": "center",
-                        "marginBottom": "16px"
-                    },
-                    children=[
-                        html.H1("Evolução Temporal da Sinistralidade",
-                                style={"margin": "0", "color": PRIMARY, "fontSize": "34px"}),
-
-                        dcc.Dropdown(
-                            id="multi-drop-anos",
-                            options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                            value=valor_inicial_anos,
-                            multi=True,
-                            clearable=False,
-                            style={"minWidth": "300px"}
-                        )
-                    ]
+            html.Div([
+                html.A(
+                    "Dashboard Principal",
+                    href="http://127.0.0.1:8050",
+                    style=menu_item_style()
                 ),
 
-                # GRÁFICO 1
-                html.Div(
-                    style={**card_style("25px"), "marginBottom": "16px"},
-                    children=[
-                        html.H3(
-                            "Registos Mensais Acumulados",
-                            style={
-                                "margin": "0 0 14px 0",
-                                "color": PRIMARY,
-                                "fontSize": "18px",
-                                "fontWeight": "700"
-                            }
-                        ),
-
-                        dcc.Loading(
-                            type="circle",
-                            delay_show=1400,
-                            delay_hide=200,
-                            children=dcc.Graph(id="graph-linhas-mensal")
-                        )
-                    ]
+                html.A(
+                    "Evolução Temporal",
+                    href="http://127.0.0.1:8051",
+                    style=menu_item_style(active=True)
                 ),
 
-                # OUTROS GRÁFICOS
-                html.Div(
-                    style={"display": "flex", "gap": "16px"},
-                    children=[
+                html.A(
+                    "Comparação entre anos",
+                    href="http://127.0.0.1:8052",
+                    style=menu_item_style()
+                ),
 
-                        # BLOCO ESQUERDO
-                        html.Div(
-                            style={**card_style("25px"), "flex": "1"},
-                            children=[
+            ], style={"padding": "20px 12px"})
 
-                                html.Div(
-                                    style={
-                                        "display": "flex",
-                                        "justifyContent": "space-between",
-                                        "alignItems": "center",
-                                        "marginBottom": "15px"
-                                    },
-                                    children=[
-                                        html.H3(
-                                            "Distribuição Semanal",
-                                            style={
-                                                "margin": "0",
-                                                "color": PRIMARY,
-                                                "fontSize": "18px",
-                                                "fontWeight": "700"
-                                            }
-                                        ),
+        ],
+        style=sidebar_style(False)
+    ),
 
-                                        dcc.Dropdown(
-                                            id="drop-mes-inferior",
-                                            options=[
-                                                {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
-                                                for i in range(1, 13)
-                                            ],
-                                            value="JAN",
-                                            clearable=False
-                                        )
-                                    ]
-                                ),
+    # ==========================================================================
+    # CONTEÚDO
+    # ==========================================================================
+    html.Div([
 
-                                dcc.Loading(
-                                    type="circle",
-                                    delay_show=1400,
-                                    delay_hide=200,
-                                    children=dcc.Graph(id="graph-barras-dias")
-                                )
-                            ]
-                        ),
+        # HEADER
+        html.Div([
 
-                        # BLOCO DIREITO
-                        html.Div(
-                            style={**card_style("25px"), "flex": "1.5"},
-                            children=[
-                                html.H3(
-                                    "Número de Acidentes por Hora e Dia",
-                                    style={
-                                        "margin": "0 0 14px 0",
-                                        "color": PRIMARY,
-                                        "fontSize": "18px",
-                                        "fontWeight": "700"
-                                    }
-                                ),
+            html.H1(
+                "Evolução Temporal da Sinistralidade",
+                style=main_title_style()
+            ),
 
-                                dcc.Loading(
-                                    type="circle",
-                                    delay_show=1400,
-                                    delay_hide=200,
-                                    children=dcc.Graph(id="graph-heatmap-horas")
-                                )
-                            ]
-                        )
-                    ]
+            html.P(
+                "Análise temporal dos acidentes rodoviários",
+                style=main_subtitle_style()
+            )
+
+        ], style={
+            "textAlign": "center",
+            "marginBottom": "24px"
+        }),
+
+        # DROPDOWN
+        html.Div([
+
+            dcc.Dropdown(
+                id="multi-drop-anos",
+                options=[
+                    {"label": str(a), "value": a}
+                    for a in anos_disponiveis
+                ],
+                value=anos_disponiveis,
+                multi=True,
+                clearable=False
+            )
+
+        ], style={
+            **card_style(),
+            "marginBottom": "20px"
+        }),
+
+        # GRÁFICO LINHAS
+        html.Div([
+
+            html.H3(
+                "Registos Mensais Acumulados",
+                style=section_title_style()
+            ),
+
+            dcc.Loading(
+                type="circle",
+                color=ACCENT,
+                children=dcc.Graph(
+                    id="graph-linhas-mensal"
                 )
-            ]
-        )
-    ]
-)
+            )
+
+        ], style={
+            **card_style(),
+            "marginBottom": "20px"
+        }),
+
+        # BOTTOM
+        html.Div([
+
+            # BARRAS
+            html.Div([
+
+                html.Div([
+
+                    html.H3(
+                        "Distribuição Semanal",
+                        style=section_title_style()
+                    ),
+
+                    dcc.Dropdown(
+                        id="drop-mes-inferior",
+                        options=[
+                            {
+                                "label": MONTH_LABELS_FULL[i],
+                                "value": MONTH_LABELS_ABR[i]
+                            }
+                            for i in range(1, 13)
+                        ],
+                        value="JAN",
+                        clearable=False,
+                        style={"width": "180px"}
+                    )
+
+                ], style={
+                    "display": "flex",
+                    "justifyContent": "space-between",
+                    "alignItems": "center",
+                    "marginBottom": "12px"
+                }),
+
+                dcc.Loading(
+                    type="circle",
+                    color=ACCENT,
+                    children=dcc.Graph(
+                        id="graph-barras-dias"
+                    )
+                )
+
+            ], style={
+                **card_style(),
+                "width": "40%"
+            }),
+
+            # HEATMAP
+            html.Div([
+
+                html.H3(
+                    "Número de Acidentes por Hora e Dia",
+                    style=section_title_style()
+                ),
+
+                dcc.Loading(
+                    type="circle",
+                    color=ACCENT,
+                    children=dcc.Graph(
+                        id="graph-heatmap-horas"
+                    )
+                )
+
+            ], style={
+                **card_style(),
+                "width": "60%"
+            })
+
+        ], style={
+            "display": "flex",
+            "gap": f"{GAP}px"
+        })
+
+    ], style={
+        "maxWidth": "1400px",
+        "margin": "0 auto"
+    })
+
+], style={
+    "padding": "20px 24px 32px 24px",
+    "backgroundColor": BG,
+    "fontFamily": FONT_FAMILY,
+    "minHeight": "100vh"
+})
 
 # ==============================================================================
-# 6. CALLBACK DO MENU
+# 6. CALLBACK SIDEBAR
 # ==============================================================================
 @app.callback(
     Output("sidebar-menu", "style"),
     Input("hamburger-btn", "n_clicks")
 )
 def toggle_sidebar(n_clicks):
+
     is_open = bool(n_clicks and n_clicks % 2 == 1)
+
     return sidebar_style(is_open)
 
-
-# ==============================================================================
-# 7. CALLBACK DOS GRÁFICOS
-# ==============================================================================
+# ==========================================================================
+# 7. CALLBACK GRÁFICOS (AJUSTADO PARA BARRAS EMPILHADAS)
+# ==========================================================================
 @app.callback(
     Output("graph-linhas-mensal", "figure"),
     Output("graph-barras-dias", "figure"),
@@ -520,22 +609,15 @@ def toggle_sidebar(n_clicks):
     Input("drop-mes-inferior", "value")
 )
 def update_dashboard(anos_selecionados, mes_selecionado):
-    if df_temp.empty:
-        empty_fig = go.Figure()
-        empty_fig.update_layout(
-            title="Sem dados disponíveis",
-            height=360
-        )
-        return empty_fig, empty_fig, empty_fig
 
     if not anos_selecionados:
         anos_selecionados = anos_disponiveis
 
-    df_filtered = df_temp[df_temp["Ano"].isin(anos_selecionados)].copy()
+    df_filtered = df_temp[
+        df_temp["Ano"].isin(anos_selecionados)
+    ].copy()
 
-    # --------------------------------------------------------------------------
-    # Gráfico 1: Evolução mensal real
-    # --------------------------------------------------------------------------
+    # --- GRÁFICO DE LINHAS ---
     df_l = (
         df_filtered
         .dropna(subset=["Mês"])
@@ -550,35 +632,11 @@ def update_dashboard(anos_selecionados, mes_selecionado):
         y="Acidentes",
         color="Ano",
         markers=True,
-        line_shape="linear",
         color_discrete_map=YEAR_COLORS
     )
+    apply_common_figure_style(fig_l, 360)
 
-    fig_l.update_traces(
-        line=dict(width=2.5),
-        marker=dict(size=7)
-    )
-
-    fig_l.update_layout(
-        template="plotly_white",
-        height=360,
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis_title="",
-        yaxis_title="Total de Acidentes",
-        margin=dict(t=10, b=20, l=20, r=20),
-        hovermode="x unified",
-        legend_title_text="Ano",
-        font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK),
-        xaxis=dict(categoryorder="array", categoryarray=MONTH_ORDER)
-    )
-
-    fig_l.update_xaxes(showgrid=False)
-    fig_l.update_yaxes(showgrid=True, gridcolor="#EAEFF5", zeroline=False)
-
-    # --------------------------------------------------------------------------
-    # Gráfico 2: Distribuição semanal real
-    # --------------------------------------------------------------------------
+    # --- GRÁFICO DE BARRAS EMPILHADAS (STACKED) ---
     df_b = df_filtered[df_filtered["Mês"] == mes_selecionado].copy()
 
     df_b_sum = (
@@ -589,47 +647,47 @@ def update_dashboard(anos_selecionados, mes_selecionado):
         .reset_index(name="Acidentes")
     )
 
+    # Converter Ano para string para garantir cores discretas e legenda correta
+    df_b_sum["Ano"] = df_b_sum["Ano"].astype(str)
+
     fig_b = px.bar(
         df_b_sum,
         x="Dia_Semana",
         y="Acidentes",
         color="Ano",
-        barmode="group",
-        color_discrete_map=YEAR_COLORS,
-        category_orders={"Ano": sorted(YEAR_COLORS.keys())}
+        barmode="stack",  # ALTERADO: de 'group' para 'stack'
+        color_discrete_map={str(k): v for k, v in YEAR_COLORS.items()},
+        category_orders={
+            "Ano": [str(a) for a in sorted(YEAR_COLORS.keys())],
+            "Dia_Semana": DAY_ORDER
+        }
     )
-    
+
+    apply_common_figure_style(fig_b, 360)
+
+    # Ajustar legenda das barras para ser vertical à direita (como as linhas)
     fig_b.update_layout(
-        template="plotly_white",
-        height=360,
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis_title="",
-        yaxis_title="Acidentes",
-        showlegend=False,
-        margin=dict(t=10, b=20, l=20, r=20),
-        font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK),
-        xaxis=dict(categoryorder="array", categoryarray=DAY_ORDER)
+        legend=dict(
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="left",
+            x=1.02
+        )
     )
 
-    fig_b.update_xaxes(showgrid=False)
-    fig_b.update_yaxes(showgrid=True, gridcolor="#EAEFF5", zeroline=False)
-
-    # --------------------------------------------------------------------------
-    # Gráfico 3: Heatmap real Hora x Dia da Semana
-    # --------------------------------------------------------------------------
-
+    # --- HEATMAP ---
     df_heat = df_filtered[
         df_filtered["Mês"] == mes_selecionado
-    ].dropna(subset=["Dia_Semana", "Hora"]).copy()
+    ].dropna(subset=["Dia_Semana", "Hora"])
 
     df_h = df_heat.pivot_table(
         index="Dia_Semana",
         columns="Hora",
         values="Ano",
         aggfunc="count",
-        observed=True,
-        fill_value=0
+        fill_value=0,
+        observed=True
     )
 
     df_h = df_h.reindex(index=DAY_ORDER)
@@ -640,28 +698,15 @@ def update_dashboard(anos_selecionados, mes_selecionado):
             z=df_h.values,
             x=df_h.columns,
             y=df_h.index,
-            colorscale="Viridis",
-            showscale=True,
-            colorbar=dict(title="Acidentes")
+            colorscale="Reds"
         )
     )
-
-    fig_h.update_layout(
-        template="plotly_white",
-        height=360,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        xaxis=dict(title="Hora do Dia", dtick=1),
-        yaxis=dict(title="", autorange="reversed"),
-        margin=dict(t=10, b=20, l=20, r=20),
-        font=dict(family="Arial, sans-serif", size=12, color=TEXT_DARK)
-    )
+    apply_common_figure_style(fig_h, 360)
 
     return fig_l, fig_b, fig_h
 
-
 # ==============================================================================
-# 8. RUN
+# MAIN
 # ==============================================================================
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False, port=8051)
+    app.run(debug=True, port=8051)
