@@ -677,58 +677,39 @@ app.layout = html.Div([
                     "width": "60%",
                     "textAlign": "center"
                 }),
-
-                # Filtros à direita
+                        # Filtros à direita
+                        # Filtros à direita (No Header)
+            html.Div([
                 html.Div([
-                    html.Div([
-                        html.Label("Analisar por", style=dropdown_label_style()),
-                        dcc.Dropdown(
-                            id="atributo-dinamico",
-                            options=[
-                                {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
-                                {"label": "Meteorologia", "value": "Meteorologia"},
-                                {"label": "Natureza do acidente", "value": "Natureza"},
-                                {"label": "Tipos de Vias", "value": "Tipo_Via"},
-                            ],
-                            value="Tipo_Veiculo",
-                            clearable=False,
-                            style=dropdown_style("180px")
-                        )
-                    ], style={"marginRight": "12px"}),
+                    html.Label("Anos", style=dropdown_label_style()),
+                    dcc.Dropdown(
+                        id="anos-selecionados",
+                        options=[{"label": str(a), "value": a} for a in anos_disponiveis],
+                        value=[ano_comp_default, ano_base_default],
+                        multi=True,
+                        clearable=True,
+                        style=dropdown_style("200px")
+                    )
+                ], style={"marginRight": "12px"}),
 
-                    html.Div([
-                        html.Label("Anos", style=dropdown_label_style()),
-                        dcc.Dropdown(
-                            id="anos-selecionados",
-                            options=[{"label": str(a), "value": a} for a in anos_disponiveis],
-                            value=[ano_comp_default, ano_base_default],
-                            multi=True,
-                            clearable=False,
-                            style=dropdown_style("200px")
-                        )
-                    ], style={"marginRight": "12px"}),
-
-                    html.Div([
-                        html.Label("Mês", style=dropdown_label_style()),
-                        dcc.Dropdown(
-                            id="mes-filtro",
-                            options=[{"label": "Todos", "value": "Geral"}] + [
-                                {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
-                                for i in range(1, 13)
-                            ],
-                            value="Geral",
-                            clearable=False,
-                            style=dropdown_style("150px")
-                        )
-                    ])
-                ], style={
-                    "width": "20%",
-                    "display": "flex",
-                    "justifyContent": "flex-end",
-                    "alignItems": "flex-end",
-                    "gap": "12px",
-                    "flexWrap": "wrap"
-                })
+                html.Div([
+                    html.Label("Mês", style=dropdown_label_style()),
+                    dcc.Dropdown(
+                        id="mes-filtro",
+                        options=[{"label": "Todos", "value": "Geral"}] + [
+                            {"label": MONTH_LABELS_FULL[i], "value": MONTH_LABELS_ABR[i]}
+                            for i in range(1, 13)
+                        ],
+                        value="Geral",
+                        clearable=False,
+                        style=dropdown_style("150px")
+                    )
+                ])
+            ], style={
+                "display": "flex", 
+                "alignItems": "flex-end", 
+                "paddingTop": "45px" # Ajusta conforme preferires
+            })
 
             ], style={
                 "display": "flex",
@@ -741,22 +722,36 @@ app.layout = html.Div([
         ]),
 
         # Card do gráfico
+        # Card do gráfico (Caixa Branca)
         html.Div([
             html.Div([
-                html.H3(id="titulo-comparacao", style=section_title_style()),
+                # Título e Subtítulo à esquerda
+                html.Div([
+                    html.H3(id="titulo-comparacao", style=section_title_style()),
+                    html.Div(id="subtitulo-comparacao", style={"marginTop": "4px", "color": TEXT_MID}),
+                ]),
+                
+                # O Dropdown "Analisar por" aqui dentro!
+                html.Div([
+                    html.Label("Analisar dados por:", style=dropdown_label_style()),
+                    dcc.Dropdown(
+                        id="atributo-dinamico",
+                        options=[
+                            {"label": "Tipo de Veículo", "value": "Tipo_Veiculo"},
+                            {"label": "Meteorologia", "value": "Meteorologia"},
+                            {"label": "Natureza do acidente", "value": "Natureza"},
+                            {"label": "Tipos de Vias", "value": "Tipo_Via"},
+                        ],
+                        value="Tipo_Veiculo",
+                        clearable=False,
+                        style=dropdown_style("200px")
+                    )
+                ])
             ], style={
                 "display": "flex",
-                "justifyContent": "space-between",
-                "alignItems": "center",
-                "marginBottom": "12px"
-            }),
-
-            html.Div(id="subtitulo-comparacao", style={
-                "textAlign": "left",
-                "margin": "-8px 0 16px 0",
-                "color": TEXT_MID,
-                "fontSize": "13px",
-                "fontFamily": FONT_FAMILY,
+                "justifyContent": "space-between", # Empurra o título para a esquerda e o filtro para a direita
+                "alignItems": "flex-start",
+                "marginBottom": "20px"
             }),
 
             dcc.Loading(
@@ -843,8 +838,8 @@ def update_comparison(anos_selecionados, mes, atributo):
         return make_empty_fig("Sem dados disponíveis"), "", ""
 
     # Filtrar anos
-    if not anos_selecionados or len(anos_selecionados) < 1:
-        return make_empty_fig("Selecione pelo menos um ano"), "", ""
+    if not anos_selecionados:
+        return make_empty_fig("Selecione pelo menos um ano para visualizar os dados"), "", ""
 
     dataframes = []
 
