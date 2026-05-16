@@ -11,7 +11,7 @@ from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+DATA_DIR = os.path.join(BASE_DIR, "Datasets_Limpos")
 
 # =========================
 # 1. FUNÇÕES AUXILIARES
@@ -112,32 +112,105 @@ def format_int_pt(value):
 # 2. CARREGAR DADOS
 # =========================
 def load_data():
-    preferred_files = [
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2023_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2024_limpo.xlsx"),
+    parquet_path = os.path.join(DATA_DIR, "dataset2324.parquet")
+
+    # Se já existir parquet → carregar imediatamente
+    if os.path.exists(parquet_path):
+        print("A carregar dados do ficheiro Parquet (otimizado)...")
+        return pd.read_parquet(parquet_path)
+
+    # Caso não exista parquet → ler Excel
+    print("Parquet não encontrado, a ler ficheiros Excel...")
+    possible_files = [
+        os.path.join(DATA_DIR, f"Tabela_acidentes_{ano}_limpo.xlsx")
+        for ano in range(2023, 2025)
     ]
 
-    files = [path for path in preferred_files if os.path.exists(path)]
-
     dfs = []
-    for file in files:
-        try:
-            df_local = pd.read_excel(file)
-        except Exception:
-            continue
+    for file in possible_files:
+        if os.path.exists(file):
+            try:
+                df_local = pd.read_excel(file)
 
-        filename = os.path.basename(file)
-        digits = "".join(filter(str.isdigit, filename))
-        if len(digits) >= 4:
-            df_local["Ano"] = int(digits[:4])
+                digits = "".join(filter(str.isdigit, os.path.basename(file)))
+                if len(digits) >= 4:
+                    df_local["Ano"] = int(digits[:4])
 
-        dfs.append(df_local)
+                dfs.append(df_local)
+
+            except Exception as e:
+                print(f"Erro a ler {file}: {e}")
+                continue
 
     if not dfs:
-        print("Aviso: não foi possível carregar os ficheiros de acidentes.")
         return pd.DataFrame()
 
-    return pd.concat(dfs, ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
+
+    # =======================================================
+    # 1) Pré-calcular Mes_Num
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) Converter todas as colunas object misturadas → string
+    #    (resolve TODOS os erros de Parquet)
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            try:
+                df[col] = df[col].astype(str)
+            except:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) Guardar parquet seguro
+    # =======================================================
+    try:
+        df.to_parquet(parquet_path, index=False)
+        print("Parquet criado com sucesso.")
+    except Exception as e:
+        print(f"Não foi possível guardar Parquet: {e}")
+
+    return df
+
+
+    # =======================================================
+    # 1) PRÉ-CÁLCULO DE Mes_Num (acelera callbacks)
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) DETEÇÃO AUTOMÁTICA DE COLUNAS OBJECT MISTAS
+    #    (resolver todos os erros "Expected bytes, got int")
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            # Se tiver mistura (int + str + None), converter tudo para str
+            try:
+                # Tenta converter sem erro — se falhar, força string
+                df[col].astype(str)
+                df[col] = df[col].astype(str)
+            except Exception:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) GRAVAR PARQUET SEM ERROS (PyArrow agora aceita tudo)
+    # =======================================================
+    df.to_parquet(parquet_file, index=False)
+
+    return df
+
+
+
 
 
 def load_geojson_portugal():
@@ -259,13 +332,14 @@ RODOVIARIA_SECONDARY = "#455A64"
 BAR_COLORS = [RODOVIARIA_SECONDARY]
 
 CHOROPLETH_SCALE = [
-    [0.0, "#FDF2F2"],
-    [0.2, "#FADBD8"],
-    [0.4, "#EC7063"],
-    [0.6, "#E74C3C"],
-    [0.8, "#B03A2E"],
-    [1.0, "#78281F"]
+    [0.0, "#FEACAC"],
+    [0.2, "#FF8F82"],
+    [0.4, "#FC6555"],
+    [0.6, "#ED422F"],
+    [0.8, "#A53428"],
+    [1.0, "#7B241C"]
 ]
+
 
 FONT_FAMILY = "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
 
@@ -1216,7 +1290,7 @@ def update_selected_month(click_acidentes, click_vitimas, reset_clicks):
 )
 def update_dashboard(selected_district, selected_month, dashboard_mode):
 
-    base_df = df.copy()
+    base_df = df
 
     # Modo do dashboard
     is_mortais = dashboard_mode == "mortais"
@@ -1233,15 +1307,19 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
     # =========================
     # 2. DATASETS POR NÍVEL
     # =========================
-    df_year = base_df.copy()
 
+    # Filtra ano atual
     if selected_year is not None:
-        df_year = df_year[pd.to_numeric(df_year["Ano"], errors="coerce") == selected_year]
+        df_year = base_df[base_df["Ano"] == selected_year]
+    else:
+        df_year = base_df  # fallback
 
-    df_prev_year = base_df.copy()
-
+    # Filtra ano anterior
     if selected_year is not None:
-        df_prev_year = df_prev_year[pd.to_numeric(df_prev_year["Ano"], errors="coerce") == selected_year - 1]
+        df_prev_year = base_df[base_df["Ano"] == selected_year - 1]
+    else:
+        df_prev_year = base_df.iloc[0:0]  # dataframe vazio
+
 
     # =========================
     # 3. DATASET PARA KPIs (COM MÊS + DISTRITO)
@@ -1263,7 +1341,7 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
     # =========================
     # 4. DATASET PARA LINHAS (SÓ ANO + DISTRITO SEM MÊS)
     # =========================
-    line_df = df_year.copy()
+    line_df = df_year
 
     if selected_district and distrito_col:
         line_df = line_df[line_df["DistritoNorm"] == selected_district]

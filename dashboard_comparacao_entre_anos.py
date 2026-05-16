@@ -80,14 +80,16 @@ MONTH_ORDER_ABR = list(MONTH_LABELS_ABR.values())
 def load_data():
     parquet_path = os.path.join(DATA_DIR, "acidentes_total.parquet")
 
+    # Se já existir parquet → carregar imediatamente
     if os.path.exists(parquet_path):
-        print("✅ A carregar dados do ficheiro Parquet (otimizado)...")
+        print("A carregar dados do ficheiro Parquet (otimizado)...")
         return pd.read_parquet(parquet_path)
 
-    print("⚠️ Parquet não encontrado, a ler ficheiros Excel...")
+    # Caso não exista parquet → ler Excel
+    print("Parquet não encontrado, a ler ficheiros Excel...")
     possible_files = [
         os.path.join(DATA_DIR, f"Tabela_acidentes_{ano}_limpo.xlsx")
-        for ano in range(2018, 2025)
+        for ano in range(2023, 2025)
     ]
 
     dfs = []
@@ -95,10 +97,13 @@ def load_data():
         if os.path.exists(file):
             try:
                 df_local = pd.read_excel(file)
+
                 digits = "".join(filter(str.isdigit, os.path.basename(file)))
                 if len(digits) >= 4:
                     df_local["Ano"] = int(digits[:4])
+
                 dfs.append(df_local)
+
             except Exception as e:
                 print(f"Erro a ler {file}: {e}")
                 continue
@@ -107,13 +112,69 @@ def load_data():
         return pd.DataFrame()
 
     df = pd.concat(dfs, ignore_index=True)
+
+    # =======================================================
+    # 1) Pré-calcular Mes_Num
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) Converter todas as colunas object misturadas → string
+    #    (resolve TODOS os erros de Parquet)
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            try:
+                df[col] = df[col].astype(str)
+            except:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) Guardar parquet seguro
+    # =======================================================
     try:
         df.to_parquet(parquet_path, index=False)
-        print("💾 Parquet criado com sucesso.")
+        print("Parquet criado com sucesso.")
     except Exception as e:
         print(f"Não foi possível guardar Parquet: {e}")
 
     return df
+
+
+    # =======================================================
+    # 1) PRÉ-CÁLCULO DE Mes_Num (acelera callbacks)
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) DETEÇÃO AUTOMÁTICA DE COLUNAS OBJECT MISTAS
+    #    (resolver todos os erros "Expected bytes, got int")
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            # Se tiver mistura (int + str + None), converter tudo para str
+            try:
+                # Tenta converter sem erro — se falhar, força string
+                df[col].astype(str)
+                df[col] = df[col].astype(str)
+            except Exception:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) GRAVAR PARQUET SEM ERROS (PyArrow agora aceita tudo)
+    # =======================================================
+    df.to_parquet(parquet_file, index=False)
+
+    return df
+
 
 df_principal = load_data()
 # ==============================================================================

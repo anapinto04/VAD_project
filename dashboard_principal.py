@@ -11,7 +11,7 @@ from shapely.geometry import shape, mapping
 from shapely.ops import transform
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+DATA_DIR = os.path.join(BASE_DIR, "Datasets_Limpos")
 
 # =========================
 # 1. FUNÇÕES AUXILIARES
@@ -112,32 +112,103 @@ def format_int_pt(value):
 # 2. CARREGAR DADOS
 # =========================
 def load_data():
-    preferred_files = [
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2023_limpo.xlsx"),
-        os.path.join(BASE_DIR, "Datasets_Limpos", "Tabela_acidentes_2024_limpo.xlsx"),
+    parquet_path = os.path.join(DATA_DIR, "dataset2324.parquet")
+
+    # Se já existir parquet → carregar imediatamente
+    if os.path.exists(parquet_path):
+        print("A carregar dados do ficheiro Parquet (otimizado)...")
+        return pd.read_parquet(parquet_path)
+
+    # Caso não exista parquet → ler Excel
+    print("Parquet não encontrado, a ler ficheiros Excel...")
+    possible_files = [
+        os.path.join(DATA_DIR, f"Tabela_acidentes_{ano}_limpo.xlsx")
+        for ano in range(2023, 2025)
     ]
 
-    files = [path for path in preferred_files if os.path.exists(path)]
-
     dfs = []
-    for file in files:
-        try:
-            df_local = pd.read_excel(file)
-        except Exception:
-            continue
+    for file in possible_files:
+        if os.path.exists(file):
+            try:
+                df_local = pd.read_excel(file)
 
-        filename = os.path.basename(file)
-        digits = "".join(filter(str.isdigit, filename))
-        if len(digits) >= 4:
-            df_local["Ano"] = int(digits[:4])
+                digits = "".join(filter(str.isdigit, os.path.basename(file)))
+                if len(digits) >= 4:
+                    df_local["Ano"] = int(digits[:4])
 
-        dfs.append(df_local)
+                dfs.append(df_local)
+
+            except Exception as e:
+                print(f"Erro a ler {file}: {e}")
+                continue
 
     if not dfs:
-        print("Aviso: não foi possível carregar os ficheiros de acidentes.")
         return pd.DataFrame()
 
-    return pd.concat(dfs, ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
+
+    # =======================================================
+    # 1) Pré-calcular Mes_Num
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) Converter todas as colunas object misturadas → string
+    #    (resolve TODOS os erros de Parquet)
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            try:
+                df[col] = df[col].astype(str)
+            except:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) Guardar parquet seguro
+    # =======================================================
+    try:
+        df.to_parquet(parquet_path, index=False)
+        print("Parquet criado com sucesso.")
+    except Exception as e:
+        print(f"Não foi possível guardar Parquet: {e}")
+
+    return df
+
+
+    # =======================================================
+    # 1) PRÉ-CÁLCULO DE Mes_Num (acelera callbacks)
+    # =======================================================
+    mes_col = find_column(df, ["Mês", "Mes", "Mês do Ano", "Mes do Ano"])
+    if mes_col:
+        df["Mes_Num"] = parse_mes_num(df[mes_col])
+    else:
+        df["Mes_Num"] = pd.NA
+
+    # =======================================================
+    # 2) DETEÇÃO AUTOMÁTICA DE COLUNAS OBJECT MISTAS
+    #    (resolver todos os erros "Expected bytes, got int")
+    # =======================================================
+    for col in df.columns:
+        if df[col].dtype == "object":
+            # Se tiver mistura (int + str + None), converter tudo para str
+            try:
+                # Tenta converter sem erro — se falhar, força string
+                df[col].astype(str)
+                df[col] = df[col].astype(str)
+            except Exception:
+                df[col] = df[col].astype(str)
+
+    # =======================================================
+    # 3) GRAVAR PARQUET SEM ERROS (PyArrow agora aceita tudo)
+    # =======================================================
+    df.to_parquet(parquet_file, index=False)
+
+    return df
+
 
 
 def load_geojson_portugal():
@@ -268,21 +339,22 @@ INFO = "#1565C0"
 NEUTRAL = "#BDC3C7"        # Prata (Dados de comparação)
 
 # Cores para Gráficos (Sequência elegante)
-RODOVIARIA_PRIMARY = "#2B506E"  # Azul Marinho Ardósia (Sério e Profissional)
-RODOVIARIA_SECONDARY = "#455A64" # Cinza Azulado (Para tons neutros)
+RODOVIARIA_PRIMARY = "#144B6E"  # Azul Marinho Ardósia (Sério e Profissional)
+RODOVIARIA_SECONDARY = "#144B6E" # Cinza Azulado (Para tons neutros)
 
 # Aplicar como cor única para barras e linhas
 BAR_COLORS = [RODOVIARIA_SECONDARY] 
 
-# Escala para Mapas e Treemap (Gradiente suave de Vermelho Profissional)
 CHOROPLETH_SCALE = [
-    [0.0, "#FDF2F2"],   # Nível 1: Quase branco (Mínimo de acidentes)
-    [0.2, "#FADBD8"],   # Nível 2: Rosa pálido
-    [0.4, "#EC7063"],   # Nível 3: Coral/Vermelho médio
-    [0.6, "#E74C3C"],   # Nível 4: Vermelho alerta (Padrão corporativo)
-    [0.8, "#B03A2E"],   # Nível 5: Vermelho tijolo
-    [1.0, "#78281F"]    # Nível 6: Vermelho vinho profundo (Máximo de acidentes)
+    [0.0,  "#A5C6E1"],   # Azul médio ligeiro (não é claro demais)
+    [0.2,  "#7FA7C7"],   # Azul médio
+    [0.4,  "#5D8FB3"],   # Azul mais encorpado
+    [0.6,  "#3E759E"],   # Azul forte
+    [0.8,  "#265C87"],   # Azul intenso
+    [1.0,  "#144B6E"]    # Azul petróleo escuro (muito forte)
 ]
+
+
 
 
 
@@ -403,7 +475,7 @@ def toggle_button_style(active=False):
             "padding": "10px 20px",
             "border": "none",
             "borderRadius": "8px",
-            "background": ACCENT,
+            "background": "#144B6E",
             "color": "white",
             "cursor": "pointer",
             "fontSize": get_font_size("md"),
@@ -1496,7 +1568,8 @@ def update_dashboard(selected_district, selected_month):
             line=dict(color=RODOVIARIA_PRIMARY, width=2.5),
             marker=dict(size=8, color=RODOVIARIA_SECONDARY, line=dict(width=2, color="white")),
             fill="tozeroy",
-            fillcolor="rgba(69, 90, 100, 0.1)"
+            fillcolor="rgba(127, 167, 199, 0.2)"
+
         ))
 
         # Removido o título redundante do gráfico
@@ -1546,7 +1619,7 @@ def update_dashboard(selected_district, selected_month):
             line=dict(color=RODOVIARIA_PRIMARY, width=2.5),
             marker=dict(size=8, color=RODOVIARIA_SECONDARY, line=dict(width=2, color="white")),
             fill="tozeroy",
-            fillcolor="rgba(69, 90, 100, 0.1)"
+            fillcolor="rgba(127, 167, 199, 0.2)"
         ))
 
         # Removido o título redundante do gráfico
