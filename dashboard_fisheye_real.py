@@ -331,37 +331,39 @@ app.layout = html.Div([
         }),
 
         # Grelha de Mapas
+        # Grelha de Mapas
         html.Div([
-            # Mapa Principal (sem loading spinner)
+            # Mapa Principal (Agora mais estreito)
             html.Div([
                 html.H3("Mapa de Clusters", style=section_title_style()),
                 dcc.Graph(id="mapa-principal", style={"height": "70vh"}, config={"displaylogo": False}),
             ], style=card_style()),
 
-            # Lupa (com loading spinner)
+            # Lupa (Agora mais largo)
             html.Div([
                 html.H3("Detalhe da Zona", style=section_title_style()),
                 dcc.Loading(
                     type="circle",
-                    delay_show=200,
-                    delay_hide=200,
                     color=ACCENT,
                     children=[
-                        dcc.Graph(id="mapa-lupa", style={"height": "55vh"}, config={"displaylogo": False}),
+                        dcc.Graph(id="mapa-lupa", style={"height": "65vh"}, config={"displaylogo": False}),
                     ]
                 ),
+                
                 html.Div(id="info-detalhe", style={
-                    "marginTop": "10px",
-                    "padding": "10px",
+                    "marginTop": "15px",
+                    "padding": "8px",
                     "background": "#f0f4f9",
-                    "borderRadius": "10px",
+                    "borderRadius": "8px",
                     "textAlign": "center",
+                    "fontSize": "14px",
+                    "fontWeight": "500",
                     "fontFamily": FONT_FAMILY
                 })
             ], style=card_style())
         ], style={
             "display": "grid",
-            "gridTemplateColumns": "1.3fr 1fr",
+            "gridTemplateColumns": "1fr 1.3fr", # INVERTIDO: Esquerda menor, Direita maior
             "gap": "24px",
             "marginTop": "20px"
         })
@@ -420,7 +422,7 @@ def update_viz(clickData):
         lat_c = clickData["points"][0]["lat"]
         lon_c = clickData["points"][0]["lon"]
         df_lupa = df_geo[
-            (np.abs(df_geo[lat_col] - lat_c) < 0.015)  # raio de 1.5 km para mostrar detalhes próximos
+            (np.abs(df_geo[lat_col] - lat_c) < 0.015) 
             & (np.abs(df_geo[lon_col] - lon_c) < 0.015)
         ]
         fig_lupa = px.scatter_mapbox(
@@ -432,7 +434,22 @@ def update_viz(clickData):
             center={"lat": lat_c, "lon": lon_c},
             mapbox_style="carto-positron",
         )
-        fig_lupa.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, legend=dict(font=dict(size=10)))
+        
+        # CONFIGURAÇÃO DA LEGENDA NO FUNDO
+        fig_lupa.update_layout(
+            margin={"r": 0, "t": 0, "l": 0, "b": 0},
+            showlegend=True,
+            legend=dict(
+                orientation="h",      # Legenda Horizontal
+                yanchor="bottom",
+                y=0.01,               # Posicionada quase no fundo do mapa
+                xanchor="center",
+                x=0.5,                # Centralizada
+                bgcolor="rgba(255, 255, 255, 0.7)", # Fundo semi-transparente para não tapar o mapa
+                font=dict(size=10)
+            )
+        )
+        
         total_acidentes = len(df_lupa)
         info = f"Total de acidentes nesta zona: {total_acidentes}"
     else:
