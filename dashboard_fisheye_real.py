@@ -395,19 +395,35 @@ def toggle_sidebar(n_clicks):
 def update_viz(clickData):
     titulo_texto = "Clusters de Acidentes Rodoviários"
 
-    # --- Mapa Principal ---
+    # --- Mapa Principal (Mantém-se igual) ---
+    if clickData:
+        selected_index = clickData["points"][0]["pointIndex"]
+        # Criamos uma lista: o selecionado fica com 1.0, os outros com 0.15
+        opacidades = [1.0 if i == selected_index else 0.15 for i in range(len(df_clusters))]
+        # Podemos também aumentar ligeiramente o tamanho apenas do selecionado
+        tamanhos = [16 if i == selected_index else 12 for i in range(len(df_clusters))]
+    else:
+        opacidades = 0.8
+        tamanhos = 12
+
     fig_main = px.scatter_mapbox(
         df_clusters,
         lat=lat_col,
         lon=lon_col,
         color="Total_Acidentes",
-        size="Total_Acidentes",
-        size_max=28,
         color_continuous_scale=["#ffcdd2", "#e53935", "#b71c1c", "#1a0000"],
         zoom=6,
         center={"lat": 39.7, "lon": -8.1},
         mapbox_style="carto-positron",
         hover_data={"Total_Acidentes": True, lat_col: False, lon_col: False},
+    )
+
+    # Aplicamos as listas de opacidade e tamanho dinâmicas
+    fig_main.update_traces(
+        marker=dict(
+            size=tamanhos,
+            opacity=opacidades
+        )
     )
 
     if geojson_portugal:
@@ -417,41 +433,77 @@ def update_viz(clickData):
 
     fig_main.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, coloraxis_showscale=False)
 
-    # --- LUPA ---
+    # --- LUPA COM RAIO REAL ---
     if clickData:
         lat_c = clickData["points"][0]["lat"]
         lon_c = clickData["points"][0]["lon"]
-        df_lupa = df_geo[
-            (np.abs(df_geo[lat_col] - lat_c) < 0.015) 
-            & (np.abs(df_geo[lon_col] - lon_c) < 0.015)
-        ]
+        
         fig_lupa = px.scatter_mapbox(
-            df_lupa,
+            df_geo,
             lat=lat_col,
             lon=lon_col,
             color="Natureza_Mapa",
-            zoom=13,
+            zoom=14,
             center={"lat": lat_c, "lon": lon_c},
             mapbox_style="carto-positron",
         )
-        
-        # CONFIGURAÇÃO DA LEGENDA NO FUNDO
+
+        # FUNÇÃO PARA CRIAR CÍRCULO GEOJSON (Raio Real)
+        def create_circle_geojson(lat, lon, radius_km):
+            coords = []
+            # Criamos 64 pontos para fazer um círculo suave
+            for i in range(65):
+                angle = np.radians(i * 360 / 64)
+                # Aproximação simples para conversão de KM para Graus
+                # Lat: 1 grau ≈ 111km | Lon: 1 grau ≈ 111km * cos(lat)
+                d_lat = (radius_km / 111) * np.cos(angle)
+                d_lon = (radius_km / (111 * np.cos(np.radians(lat)))) * np.sin(angle)
+                coords.append([lon + d_lon, lat + d_lat])
+            
+            return {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [coords]
+                    }
+                }]
+            }
+
+        # Raio de 500 metros = 0.5 KM
+        raio_real_km = RAIO_AGRUPAMENTO_METROS / 1000 
+        circle_geojson = create_circle_geojson(lat_c, lon_c, raio_real_km)
+
+        # Adicionar o círculo como um polígono (preenchimento) e uma linha (contorno)
+        fig_lupa.update_layout(
+            mapbox_layers=[
+                {
+                    "source": circle_geojson,
+                    "type": "fill",
+                    "below": "traces",
+                    "color": "rgba(231, 76, 60, 0.15)", # Preenchimento clarinho
+                },
+                {
+                    "source": circle_geojson,
+                    "type": "line",
+                    "color": "rgba(231, 76, 60, 0.4)", # Contorno um pouco mais visível
+                    "line": {"width": 2}
+                }
+            ]
+        )
+
         fig_lupa.update_layout(
             margin={"r": 0, "t": 0, "l": 0, "b": 0},
             showlegend=True,
-            legend=dict(
-                orientation="h",      # Legenda Horizontal
-                yanchor="bottom",
-                y=0.01,               # Posicionada quase no fundo do mapa
-                xanchor="center",
-                x=0.5,                # Centralizada
-                bgcolor="rgba(255, 255, 255, 0.7)", # Fundo semi-transparente para não tapar o mapa
-                font=dict(size=10)
-            )
+            legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="center", x=0.5, bgcolor="rgba(255, 255, 255, 0.7)")
         )
         
-        total_acidentes = len(df_lupa)
-        info = f"Total de acidentes nesta zona: {total_acidentes}"
+        acidentes_no_raio = len(df_geo[
+            (np.abs(df_geo[lat_col] - lat_c) < RAIO_AGRUPAMENTO_DEG) & 
+            (np.abs(df_geo[lon_col] - lon_c) < RAIO_AGRUPAMENTO_DEG)
+        ])
+        info = f"Total de acidentes dentro deste cluster: {acidentes_no_raio}"
     else:
         fig_lupa = px.scatter_mapbox(lat=[39.7], lon=[-8.1], zoom=5, mapbox_style="carto-positron")
         fig_lupa.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
