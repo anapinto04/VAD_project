@@ -615,7 +615,7 @@ def hamburger_style():
         "height": "36px",       # Reduzido de 48px para 36px (caixa menor)
         "border": "none",
         "borderRadius": "8px",  # Reduzido de 12px para 8px para manter a proporção
-        "background": "#333333",
+        "background": "#737373",
         "color": "white",
         "fontSize": "16px",     # Reduzido de 20px para 16px (símbolo menor)
         "cursor": "pointer",
@@ -624,8 +624,6 @@ def hamburger_style():
         "alignItems": "center",
         "justifyContent": "center",
     }
-
-
 def menu_item_style(active=False):
     base = menu_item_text_style(active)
     return {

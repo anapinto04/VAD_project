@@ -563,24 +563,21 @@ def sidebar_style(is_open=False):
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "16px",
-        "left": "16px",
+        "top": "12px",          # Reduzido de 16px para 12px (mais ajustado)
+        "left": "12px",         # Reduzido de 16px para 12px
         "zIndex": "1001",
-        "width": "48px",
-        "height": "48px",
+        "width": "36px",        # Reduzido de 48px para 36px (caixa menor)
+        "height": "36px",       # Reduzido de 48px para 36px (caixa menor)
         "border": "none",
-        "borderRadius": "12px",
-        "background": PRIMARY,
+        "borderRadius": "8px",  # Reduzido de 12px para 8px para manter a proporção
+        "background": "#737373",
         "color": "white",
-        "fontSize": "20px",
-        "fontWeight": "400",
+        "fontSize": "16px",     # Reduzido de 20px para 16px (símbolo menor)
         "cursor": "pointer",
-        "boxShadow": "0 2px 8px rgba(26,26,46,0.3)",
-        "lineHeight": "1",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.2)",
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "center",
-        "transition": "all 0.2s ease"
     }
 
 
