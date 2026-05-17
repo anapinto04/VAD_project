@@ -307,25 +307,29 @@ app.layout = html.Div([
         ], style={"textAlign": "center", "marginBottom": "24px"}),
 
         # GRÁFICO LINHAS (Com filtro integrado no cabeçalho)
+        # GRÁFICO LINHAS (Com botão Deselect All)
         html.Div([
-            # ONDE ESTAVAM OS PARÊNTESES EM FALTA (CORRIGIDO)
             html.Div(children=[
-                html.H3("Registos Mensais Acumulados", style=section_title_style()),
-                html.Div(
+                html.Div([
+                    html.H3("Registos Mensais Acumulados", style=section_title_style()),
+                ]),
+                html.Div([
+                    
+            
                     dcc.Dropdown(
                         id="multi-drop-anos",
                         options=[{"label": str(a), "value": a} for a in anos_disponiveis],
                         value=anos_disponiveis,
                         multi=True,
-                        clearable=False,
+                        clearable=True, # Agora permitimos que fique vazio
+                        placeholder="Selecione os anos...",
                         style={"fontFamily": FONT_FAMILY, "fontSize": "13px"}
                     ),
-                    style={"width": "320px"}
-                )
+                ], style={"width": "320px", "display": "flex", "flexDirection": "column", "alignItems": "flex-end"})
             ], style={
                 "display": "flex",
                 "justifyContent": "space-between",
-                "alignItems": "center",
+                "alignItems": "flex-start",
                 "marginBottom": "20px"
             }),
 
@@ -395,7 +399,12 @@ def toggle_sidebar(n_clicks):
 )
 def update_dashboard(anos_selecionados, mes_selecionado):
     if not anos_selecionados:
-        anos_selecionados = anos_disponiveis
+        fig_vazia = go.Figure()
+        apply_common_figure_style(fig_vazia, 360)
+        fig_vazia.update_layout(
+            annotations=[{"text": "Selecione pelo menos um ano para visualizar os dados", "showarrow": False}]
+        )
+        return fig_vazia, fig_vazia, fig_vazia
 
     df_filtered = df_temp[df_temp["Ano"].isin(anos_selecionados)].copy()
 
@@ -449,7 +458,6 @@ def update_dashboard(anos_selecionados, mes_selecionado):
     apply_common_figure_style(fig_h, 360)
 
     return fig_l, fig_b, fig_h
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=8051)
