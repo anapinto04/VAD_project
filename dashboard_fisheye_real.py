@@ -199,18 +199,18 @@ def sidebar_style(is_open=False):
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "16px",
-        "left": "16px",
+        "top": "12px",          # Reduzido de 16px para 12px (mais ajustado)
+        "left": "12px",         # Reduzido de 16px para 12px
         "zIndex": "1001",
-        "width": "48px",
-        "height": "48px",
+        "width": "36px",        # Reduzido de 48px para 36px (caixa menor)
+        "height": "36px",       # Reduzido de 48px para 36px (caixa menor)
         "border": "none",
-        "borderRadius": "12px",
+        "borderRadius": "8px",  # Reduzido de 12px para 8px para manter a proporção
         "background": "#333333",
         "color": "white",
-        "fontSize": "20px",
+        "fontSize": "16px",     # Reduzido de 20px para 16px (símbolo menor)
         "cursor": "pointer",
-        "boxShadow": "0 2px 8px rgba(26,26,46,0.3)",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.2)",
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "center",
@@ -310,10 +310,10 @@ app.layout = html.Div([
             html.Div([
                 html.H2("Menu", style=text_style("20px", "#FFFFFF", "bold", {"textAlign": "center"})),
                 html.Hr(style={"borderColor": "rgba(255,255,255,0.3)"}),
-                html.A("Dashboard Principal", href="[127.0.0.1](http://127.0.0.1:8050)", style=menu_item_style(active=False)),
-                html.A("Evolução Temporal", href="[127.0.0.1](http://127.0.0.1:8051)", style=menu_item_style(active=False)),
-                html.A("Comparação entre anos", href="[127.0.0.1](http://127.0.0.1:8052)", style=menu_item_style(active=False)),
-                html.A("Mapa Portugal", href="[127.0.0.1](http://127.0.0.1:8056)", style=menu_item_style(active=True)),
+                html.A("Dashboard Principal", href="http://127.0.0.1:8050", style=menu_item_style(active=False)),
+                html.A("Evolução Temporal", href="http://127.0.0.1:8051", style=menu_item_style(active=False)),
+                html.A("Comparação entre anos", href="http://127.0.0.1:8052", style=menu_item_style(active=False)),
+                html.A("Mapa Portugal", href="http://127.0.0.1:8056", style=menu_item_style(active=True)),
             ], style={"padding": "0 12px"})
         ],
         style=sidebar_style(False)

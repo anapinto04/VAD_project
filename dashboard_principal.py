@@ -341,22 +341,18 @@ NEUTRAL = "#BDC3C7"        # Prata (Dados de comparação)
 # Cores para Gráficos (Sequência elegante)
 RODOVIARIA_PRIMARY = "#144B6E"  # Azul Marinho Ardósia (Sério e Profissional)
 RODOVIARIA_SECONDARY = "#144B6E" # Cinza Azulado (Para tons neutros)
-
+load_color = "#144B6E"
 # Aplicar como cor única para barras e linhas
 BAR_COLORS = [RODOVIARIA_SECONDARY] 
 
 CHOROPLETH_SCALE = [
-    [0.0,  "#A5C6E1"],   # Azul médio ligeiro (não é claro demais)
-    [0.2,  "#7FA7C7"],   # Azul médio
-    [0.4,  "#5D8FB3"],   # Azul mais encorpado
-    [0.6,  "#3E759E"],   # Azul forte
-    [0.8,  "#265C87"],   # Azul intenso
-    [1.0,  "#144B6E"]    # Azul petróleo escuro (muito forte)
+    [0.0,  "#7FB3D5"],   # Azul médio claro (deixa de ser branco)
+    [0.2,  "#5499C7"],   # Azul médio forte
+    [0.4,  "#2E86C1"],   # Azul vivo (contraste claro)
+    [0.6,  "#1B4F72"],   # Azul petróleo escuro
+    [0.8,  "#103C56"],   # Azul marinho profundo
+    [1.0,  "#06263A"]    # Azul quase preto (máximo contraste)
 ]
-
-
-
-
 
 # =========================
 # 🎯 TIPOGRAFIA CENTRALIZADA
@@ -554,6 +550,9 @@ def card_style(padding="16px"):
         "padding": padding,
         "boxShadow": "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.12)",
         "border": f"1px solid {BORDER}",
+        "overflow": "visible",
+        "position": "relative",
+        "zIndex": "1"
     }
 
 
@@ -609,24 +608,21 @@ def sidebar_style(is_open=False):
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "16px",
-        "left": "16px",
+        "top": "12px",          # Reduzido de 16px para 12px (mais ajustado)
+        "left": "12px",         # Reduzido de 16px para 12px
         "zIndex": "1001",
-        "width": "48px",
-        "height": "48px",
+        "width": "36px",        # Reduzido de 48px para 36px (caixa menor)
+        "height": "36px",       # Reduzido de 48px para 36px (caixa menor)
         "border": "none",
-        "borderRadius": "12px",
-        "background": "#333333",  # Um cinzento antracite
+        "borderRadius": "8px",  # Reduzido de 12px para 8px para manter a proporção
+        "background": "#333333",
         "color": "white",
-        "fontSize": "20px",
-        "fontWeight": "400",
+        "fontSize": "16px",     # Reduzido de 20px para 16px (símbolo menor)
         "cursor": "pointer",
-        "boxShadow": "0 2px 8px rgba(26,26,46,0.3)",
-        "lineHeight": "1",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.2)",
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "center",
-        "transition": "all 0.2s ease"
     }
 
 
@@ -1098,7 +1094,7 @@ app.layout = html.Div([
                         type="circle",
                         delay_show=200,
                         delay_hide=200,
-                        color=ACCENT,
+                        color=load_color,
                         children=dcc.Graph(
                             id="mapa-distritos",
                             style={"height": f"{MAP_HEIGHT}px"},
@@ -1146,7 +1142,7 @@ app.layout = html.Div([
                         type="circle",
                         delay_show=200,
                         delay_hide=200,
-                        color=ACCENT,
+                        color=load_color,
                         children=dcc.Graph(
                             id="line-acidentes",
                             style={"height": f"{LINE_CHART_HEIGHT}px"},
@@ -1177,7 +1173,7 @@ app.layout = html.Div([
                         type="circle",
                         delay_show=200,
                         delay_hide=200,
-                        color=ACCENT,
+                        color=load_color,
                         children=dcc.Graph(
                             id="line-vitimas",
                             style={"height": f"{LINE_CHART_HEIGHT}px"},
@@ -1224,7 +1220,7 @@ app.layout = html.Div([
                 }),
                 dcc.Loading(
                     type="circle",
-                    color=ACCENT,
+                    color=load_color,
                     children=dcc.Graph(
                         id="bar-veiculos",
                         style={"height": f"{LINE_CHART_HEIGHT}px"},
@@ -1245,14 +1241,14 @@ app.layout = html.Div([
                 }),
                 dcc.Loading(
                     type="circle",
-                    color=ACCENT,
+                    color=load_color,
                     children=dcc.Graph(
                         id="treemap-meteorologia",
                         style={"height": f"{LINE_CHART_HEIGHT}px"},
                         config={"displaylogo": False}
                     )
                 )
-            ], style={**card_style("16px"), "width": "50%"})
+            ], style={**card_style("16px"), "width": "50%",  "overflow": "visible"})
 
         ], style={
             "display": "flex", 
@@ -1688,7 +1684,7 @@ def update_dashboard(selected_district, selected_month):
         )
         fig_bar.update_yaxes(range=[0, df_veiculos["Número de Veículos"].max() * 1.15])
         
-        apply_common_figure_style(fig_bar, height=260)
+        apply_common_figure_style(fig_bar, height=300)
     else:
         fig_bar = go.Figure()
 
@@ -1703,28 +1699,33 @@ def update_dashboard(selected_district, selected_month):
             tipo_via_df,
             path=["Tipos de vias"],
             values="Total",
-            # 1. Remova o título de dentro do gráfico para ganhar espaço
-            title="", 
             color="Total",
             color_continuous_scale=CHOROPLETH_SCALE
         )
 
-        apply_common_figure_style(fig_treemap, height=260)
+        apply_common_figure_style(fig_treemap, height=300)
 
         fig_treemap.update_layout(
-            # 2. t=40 ou t=50 cria o espaço para o título HTML que está acima
-            margin=dict(t=40, l=0, r=0, b=0), 
+            margin=dict(t=40, l=0, r=0, b=20),
             paper_bgcolor="white",
             plot_bgcolor="white",
-            coloraxis_showscale=False
-        )
+            coloraxis_showscale=False,
+            hovermode="closest",
+        )        
         
         fig_treemap.update_traces(
-            # 3. Garante que o fundo cinzento da base desaparece
-            root_color="white", 
-            marker=dict(pad=dict(b=0, l=0, r=0, t=0)),
+            root_color="white",
+            marker=dict(pad=dict(b=1, l=1, r=1, t=1)),
             textfont=dict(size=12, color="white"),
-            hovertemplate="<b>%{label}</b><br>Acidentes: %{value}<extra></extra>"
+
+            hovertemplate="<b>%{label}</b><br>Acidentes: %{value}<extra></extra>",
+
+            hoverlabel=dict(
+                align="left",
+                bgcolor="white",
+                font_size=12,
+                font_family=FONT_FAMILY
+            )
         )
     else:
         fig_treemap = go.Figure()

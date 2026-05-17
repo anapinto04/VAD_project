@@ -1143,7 +1143,7 @@ app.layout = html.Div([
                         config={"displaylogo": False}
                     )
                 )
-            ], style={**card_style("16px"), "width": "50%"})
+            ], style={**card_style("16px"), "width": "50%",  "overflow": "visible"})
 
         ], style={
             "display": "flex",
@@ -1735,17 +1735,25 @@ def update_dashboard(selected_district, selected_month, dashboard_mode):
             apply_common_figure_style(fig_treemap, height=260)
 
             fig_treemap.update_layout(
-                margin=dict(t=40, l=0, r=0, b=0),
+                margin=dict(t=40, l=0, r=0, b=20),
                 paper_bgcolor="white",
                 plot_bgcolor="white",
-                coloraxis_showscale=False
-            )
+                coloraxis_showscale=False,
+                hovermode="closest",
+                
+            )      
 
             fig_treemap.update_traces(
                 root_color="white",
-                marker=dict(pad=dict(b=0, l=0, r=0, t=0)),
+                marker=dict(pad=dict(b=1, l=1, r=1, t=1)),
                 textfont=dict(size=12, color="white"),
-                hovertemplate="<b>%{label}</b><br>Total: %{value}<extra></extra>"
+                hovertemplate="<b>%{label}</b><br>Total: %{value}<extra></extra>",
+                hoverlabel=dict(
+                    align="left",
+                    bgcolor="white",
+                    font_size=12,
+                    font_family=FONT_FAMILY
+                )
             )
         else:
             fig_treemap = go.Figure()

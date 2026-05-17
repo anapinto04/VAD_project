@@ -89,7 +89,7 @@ def load_data():
     print("Parquet não encontrado, a ler ficheiros Excel...")
     possible_files = [
         os.path.join(DATA_DIR, f"Tabela_acidentes_{ano}_limpo.xlsx")
-        for ano in range(2023, 2025)
+        for ano in range(2018, 2025)
     ]
 
     dfs = []
@@ -256,21 +256,17 @@ NEUTRAL = "#BDC3C7"
 RODOVIARIA_PRIMARY = "#2B506E"
 RODOVIARIA_SECONDARY = "#455A64"
 
-# Cores por ano
 YEAR_COLORS = {
-    2018: "#0072B2",
-    2019: "#E69F00",
-    2020: "#009E73",
-    2021: "#D55E00",
-    2022: "#CC79A7",
-    2023: "#56B4E9",
-    2024: "#000000",
+    2018: "#8C8C8C",  # Cinza Médio Claro (Perfeita visibilidade no fundo branco)
+    2019: "#7A7A7A",  # Cinza Mineral
+    2020: "#696969",  # Cinza Dim (Cinza escuro intermédio)
+    2021: "#595959",  # Cinza Técnico
+    2022: "#4A4A4A",  # Cinza Carbono
+    2023: "#3B3B3B",  # Cinza Antracite
+    2024: "#2C2C2C",  # Cinza Escuro Profundo (Longe do preto total)
 }
+load_color = "#144B6E"
 
-FALLBACK_COLORS = [
-    "#0072B2", "#E69F00", "#009E73", "#D55E00",
-    "#CC79A7", "#56B4E9", "#000000", "#F0E442"
-]
 
 
 def color_for_year(year):
@@ -279,7 +275,7 @@ def color_for_year(year):
     if not anos_disponiveis:
         return PRIMARY
     idx = anos_disponiveis.index(year) if year in anos_disponiveis else 0
-    return FALLBACK_COLORS[idx % len(FALLBACK_COLORS)]
+    return YEAR_COLORS[idx % len(YEAR_COLORS)]
 
 
 # TIPOGRAFIA
@@ -377,24 +373,21 @@ def sidebar_style(is_open=False):
 def hamburger_style():
     return {
         "position": "fixed",
-        "top": "16px",
-        "left": "16px",
+        "top": "12px",          # Reduzido de 16px para 12px (mais ajustado)
+        "left": "12px",         # Reduzido de 16px para 12px
         "zIndex": "1001",
-        "width": "48px",
-        "height": "48px",
+        "width": "36px",        # Reduzido de 48px para 36px (caixa menor)
+        "height": "36px",       # Reduzido de 48px para 36px (caixa menor)
         "border": "none",
-        "borderRadius": "12px",
+        "borderRadius": "8px",  # Reduzido de 12px para 8px para manter a proporção
         "background": "#333333",
         "color": "white",
-        "fontSize": "20px",
-        "fontWeight": "400",
+        "fontSize": "16px",     # Reduzido de 20px para 16px (símbolo menor)
         "cursor": "pointer",
-        "boxShadow": "0 2px 8px rgba(26,26,46,0.3)",
-        "lineHeight": "1",
+        "boxShadow": "0 2px 8px rgba(0,0,0,0.2)",
         "display": "flex",
         "alignItems": "center",
         "justifyContent": "center",
-        "transition": "all 0.2s ease"
     }
 
 
@@ -616,22 +609,22 @@ app.layout = html.Div([
                 html.Div([
                     html.A(
                         "Dashboard Principal",
-                        href="[127.0.0.1](http://127.0.0.1:8050)",
+                        href="http://127.0.0.1:8050",
                         style=menu_item_style(active=False)
                     ),
                     html.A(
                         "Evolução Temporal",
-                        href="[127.0.0.1](http://127.0.0.1:8051)",
+                        href="http://127.0.0.1:8051",
                         style=menu_item_style(active=False)
                     ),
                     html.A(
                         "Comparação entre anos",
-                        href="[127.0.0.1](http://127.0.0.1:8052)",
+                        href="http://127.0.0.1:8052",
                         style=menu_item_style(active=True)
                     ),
                     html.A(
                         "Mapa de Portugal",
-                        href="[127.0.0.1](http://127.0.0.1:8056)",
+                        href="http://127.0.0.1:8056",
                         style=menu_item_style(active=False)
                     ),
                 ], style={"padding": "0 12px"})
@@ -758,7 +751,7 @@ app.layout = html.Div([
                 type='circle',
                 delay_show=200,
                 delay_hide=200,
-                color=ACCENT,
+                color=load_color,
                 children=dcc.Graph(
                     id="graph-comparacao",
                     config={"displaylogo": False}
@@ -792,7 +785,7 @@ def toggle_sidebar(n_clicks):
 
 
 # ==============================================================================
-# 9. CALLBACK PRINCIPAL
+# 9. CALLBACK PRINCIPAL (CORES FIXAS E ORDEM CRONOLÓGICA)
 # ==============================================================================
 @app.callback(
     Output("graph-comparacao", "figure"),
@@ -819,10 +812,8 @@ def update_comparison(anos_selecionados, mes, atributo):
             annotations=[
                 dict(
                     text=message,
-                    x=0.5,
-                    y=0.5,
-                    xref="paper",
-                    yref="paper",
+                    x=0.5, y=0.5,
+                    xref="paper", yref="paper",
                     showarrow=False,
                     font=dict(size=16, color=TEXT_MID, family=FONT_FAMILY)
                 )
@@ -837,12 +828,12 @@ def update_comparison(anos_selecionados, mes, atributo):
     if df_principal.empty:
         return make_empty_fig("Sem dados disponíveis"), "", ""
 
-    # Filtrar anos
     if not anos_selecionados:
         return make_empty_fig("Selecione pelo menos um ano para visualizar os dados"), "", ""
 
     dataframes = []
 
+    # Filtrar e recolher dados
     for ano in anos_selecionados:
         dff = df_principal[df_principal["Ano"] == ano].copy()
 
@@ -860,7 +851,7 @@ def update_comparison(anos_selecionados, mes, atributo):
 
     data = pd.concat(dataframes, ignore_index=True)
 
-    # Ordenar categorias alfabeticamente
+    # Ordenar categorias alfabeticamente no eixo do gráfico
     total_order = sorted(data["Categoria"].unique())
     data["Categoria"] = pd.Categorical(
         data["Categoria"],
@@ -868,7 +859,11 @@ def update_comparison(anos_selecionados, mes, atributo):
         ordered=True
     )
 
-    color_map = {str(ano): color_for_year(ano) for ano in anos_selecionados}
+    # 1. FORÇAR A ORDEM CRONOLÓGICA CRESCENTE NA LEGENDA (2018, 2019, 2020...)
+    anos_cronologicos = [str(ano) for ano in sorted([int(a) for a in anos_selecionados])]
+
+    # 2. MAPEAMENTO DE CORES FIXAS (Cada ano mantém sempre o seu tom de YEAR_COLORS)
+    color_map = {str(ano): color_for_year(int(ano)) for ano in anos_selecionados}
 
     # Criar gráfico baseado no atributo
     if atributo in ["Natureza", "Tipo_Via"]:
@@ -880,20 +875,17 @@ def update_comparison(anos_selecionados, mes, atributo):
             color="Ano",
             orientation="h",
             barmode="group",
-            text="Acidentes",
-            color_discrete_map=color_map
+            color_discrete_map=color_map,
+            category_orders={"Ano": anos_cronologicos} # Força ordem cronológica
         )
 
-        fig.update_traces(textposition="outside")
         apply_common_figure_style(fig, height=600)
-
         fig.update_layout(
             xaxis_title="Acidentes",
             yaxis_title="",
             legend_title="Ano",
             margin=dict(t=30, b=20, l=20, r=60),
         )
-
         fig.update_xaxes(showgrid=True, gridcolor="#ECF0F1", zeroline=False)
         fig.update_yaxes(showgrid=False)
 
@@ -905,22 +897,22 @@ def update_comparison(anos_selecionados, mes, atributo):
             y="Acidentes",
             color="Ano",
             barmode="group",
-            text="Acidentes",
-            color_discrete_map=color_map
+            color_discrete_map=color_map,
+            category_orders={"Ano": anos_cronologicos} # Força ordem cronológica
         )
 
-        fig.update_traces(textposition="outside")
         apply_common_figure_style(fig, height=520)
-
         fig.update_layout(
             xaxis_title="",
             yaxis_title="Acidentes",
             legend_title="Ano",
             margin=dict(t=30, b=60, l=20, r=20),
         )
-
         fig.update_xaxes(showgrid=False, tickangle=20 if atributo == "Meteorologia" else 0)
         fig.update_yaxes(showgrid=True, gridcolor="#ECF0F1", zeroline=False)
+
+    # GARANTIR QUE NÃO HÁ TEXTOS POR CIMA DAS BARRAS
+    fig.update_traces(texttemplate=None, textposition="none")
 
     # Label do mês
     mes_label = (
@@ -932,8 +924,7 @@ def update_comparison(anos_selecionados, mes, atributo):
         )
     )
 
-    # Títulos
-    anos_texto = ", ".join(map(str, anos_selecionados))
+    anos_texto = ", ".join(map(str, sorted([int(a) for a in anos_selecionados])))
     titulo = f"Comparação entre {anos_texto} - {atributo_labels.get(atributo)}"
     subtitulo = f"Filtro temporal: {mes_label}"
 
